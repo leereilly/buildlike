@@ -17,10 +17,11 @@ type Level struct {
 	Rooms       []Rect
 	Spawn       Point
 	Stairs      Point
-	Depth       int    // 1, 2, 3
-	HasVault    bool   // true on L2: indicates the BUILD vault was placed
-	VaultPlate  Point  // pressure plate coords (only valid if HasVault)
-	VaultColors map[Point]int // tile -> palette.Cycle index, for BUILD logo coloring
+	Depth       int         // 1..5 (B, U, I, L, D)
+	Mask        *LetterMask // letter-shaped walkability mask; nil = full rectangle
+	HasVault    bool        // legacy easter-egg flag (kept for code paths; not used in the 5-letter flow)
+	VaultPlate  Point
+	VaultColors map[Point]int
 }
 
 func NewLevel(w, h, depth int) *Level {

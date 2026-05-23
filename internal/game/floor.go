@@ -15,25 +15,25 @@ type FloorState struct {
 	Powerups []*entity.Powerup
 }
 
-// BuildFloor generates a floor for the given depth (1-3) with bugs and powerups.
+// BuildFloor generates a floor for the given depth (1-5, B-U-I-L-D) with bugs
+// and powerups. The dungeon silhouette is shaped like the depth's letter.
 func BuildFloor(depth int, p *entity.Player, r *rng.RNG) *FloorState {
 	const W, H = 80, 22
 	var l *world.Level
-	for attempt := 0; attempt < 12; attempt++ {
+	for attempt := 0; attempt < 24; attempt++ {
 		l = world.NewLevel(W, H, depth)
+		l.Mask = world.LetterFor(depth)
 		if world.Generate(l, r) {
 			break
 		}
-	}
-	if depth == 2 {
-		world.PlaceBuildVault(l, r)
 	}
 
 	p.Pos = l.Spawn
 	fs := &FloorState{Level: l}
 
-	// Bug counts per depth.
-	bugCounts := map[int]int{1: 4, 2: 7, 3: 10}
+	// Bug counts ramp gently up the BUILD ladder.
+	bugCounts := map[int]int{1: 1, 2: 2, 3: 3, 4: 4, 5: 5}
+	puCounts := map[int]int{1: 5, 2: 5, 3: 5, 4: 5, 5: 5}
 	occ := map[world.Point]bool{p.Pos: true}
 	for i := 0; i < bugCounts[depth]; i++ {
 		pos, ok := randomFloor(l, r, occ, true)
@@ -43,8 +43,7 @@ func BuildFloor(depth int, p *entity.Player, r *rng.RNG) *FloorState {
 		fs.Bugs = append(fs.Bugs, entity.NewBug(pos))
 		occ[pos] = true
 	}
-	// Powerups: 3 per level.
-	for i := 0; i < 3; i++ {
+	for i := 0; i < puCounts[depth]; i++ {
 		pos, ok := randomFloor(l, r, occ, true)
 		if !ok {
 			break

@@ -51,8 +51,17 @@ type FloorView interface {
 func drawHUD(s tcell.Screen, p *entity.Player, l *world.Level) {
 	title := "Buildlike"
 	DrawString(s, 1, 0, title, palette.FG(palette.Yellow).Bold(true))
-	depth := fmt.Sprintf("Lv %d", l.Depth)
-	DrawString(s, 14, 0, depth, palette.FG(palette.Magenta))
+	letter := byte('?')
+	letters := []byte{'B', 'U', 'I', 'L', 'D'}
+	if l.Depth >= 1 && l.Depth <= len(letters) {
+		letter = letters[l.Depth-1]
+	}
+	depth := fmt.Sprintf("Lv %d — %c", l.Depth, letter)
+	color := palette.Magenta
+	if l.Mask != nil {
+		color = palette.Cycle[l.Mask.ColorIx]
+	}
+	DrawString(s, 12, 0, depth, palette.FG(color).Bold(true))
 
 	// HP bar
 	const barW = 20
@@ -103,7 +112,15 @@ func drawMap(s tcell.Screen, p *entity.Player, fs FloorView) {
 			var st tcell.Style
 			switch t {
 			case world.TileWall, world.TileSecretDoor:
+				// Tint mask-perimeter walls in the floor's letter color so the
+				// silhouette of the letter pops.
 				st = palette.FG(palette.Blue)
+				if l.Mask != nil {
+					p := world.Point{X: x, Y: y}
+					if isLetterOutline(l, p) {
+						st = palette.FG(palette.Cycle[l.Mask.ColorIx]).Bold(true)
+					}
+				}
 			case world.TileFloor:
 				// Vault coloring?
 				if idx, ok := l.VaultColors[world.Point{X: x, Y: y}]; ok && idx >= 0 && idx < len(palette.Cycle) {
@@ -134,7 +151,7 @@ func drawMap(s tcell.Screen, p *entity.Player, fs FloorView) {
 		if !b.Alive {
 			continue
 		}
-		DrawRune(s, b.Pos.X, b.Pos.Y+offsetY, 'B', palette.FG(palette.Red).Bold(true))
+		DrawRune(s, b.Pos.X, b.Pos.Y+offsetY, 'b', palette.FG(palette.Red).Bold(true))
 	}
 	// Player
 	DrawRune(s, p.Pos.X, p.Pos.Y+offsetY, '@', palette.FG(palette.Yellow).Bold(true))
@@ -176,4 +193,20 @@ func maxInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// isLetterOutline returns true if p is a wall cell that sits on the boundary
+// between inside-mask and outside-mask area — i.e. it is the silhouette of
+// the letter, viewed from inside the dungeon.
+func isLetterOutline(l *world.Level, p world.Point) bool {
+	if l.Mask == nil || !l.Mask.Contains(p) {
+		return false
+	}
+	for _, d := range [4]world.Point{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+		n := world.Point{X: p.X + d.X, Y: p.Y + d.Y}
+		if !l.Mask.Contains(n) {
+			return true
+		}
+	}
+	return false
 }

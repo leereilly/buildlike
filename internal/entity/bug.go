@@ -20,9 +20,9 @@ func (b *Bug) Act(l *world.Level, player world.Point, occ map[world.Point]bool, 
 		return 0
 	}
 	dist := chebyshev(b.Pos, player)
-	if dist <= 8 && world.LineOfSight(l, b.Pos, player) {
+	if dist <= 6 && world.LineOfSight(l, b.Pos, player) {
 		b.Chasing = true
-	} else if dist > 12 {
+	} else if dist > 10 {
 		b.Chasing = false
 	}
 

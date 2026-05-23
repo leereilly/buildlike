@@ -10,7 +10,7 @@ type Player struct {
 }
 
 func NewPlayer() *Player {
-	return &Player{HP: 10, MaxHP: 10}
+	return &Player{HP: 12, MaxHP: 12}
 }
 
 type Powerup struct {

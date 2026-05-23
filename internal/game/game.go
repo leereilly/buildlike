@@ -145,10 +145,20 @@ func (g *Game) bugsAct() {
 }
 
 func (g *Game) ascend() {
-	if g.Floor.Level.Depth >= 3 {
-		g.Phase = PhaseRickRoll
+	if g.Floor.Level.Depth >= 5 {
+		g.Phase = PhaseWon
 		return
 	}
+	wasFirst := g.Floor.Level.Depth == 1
 	g.Floor = BuildFloor(g.Floor.Level.Depth+1, g.Player, g.RNG)
-	g.Log.Push(fmt.Sprintf("You ascend to level %d.", g.Floor.Level.Depth), ui.LogInfo)
+	letters := []byte{'B', 'U', 'I', 'L', 'D'}
+	letter := byte('?')
+	if d := g.Floor.Level.Depth; d >= 1 && d <= len(letters) {
+		letter = letters[d-1]
+	}
+	g.Log.Push(fmt.Sprintf("You ascend to level %d — %c.", g.Floor.Level.Depth, letter), ui.LogInfo)
+	if wasFirst {
+		// End of the first level: cue the surprise.
+		g.Phase = PhaseRickRoll
+	}
 }
