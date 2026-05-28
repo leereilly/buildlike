@@ -74,16 +74,12 @@ func RenderRickRoll(s tcell.Screen, tick int) {
 	Clear(s)
 	w, h := s.Size()
 
-	hint := "Developers, developers, developers... never gonna give you up."
-	hintStyle := palette.FG(palette.White)
-
 	if len(rickFrames) == 0 {
 		msg := "NEVER GONNA GIVE YOU UP"
 		sub := "(drop frames into internal/ui/rickroll_frames.txt to animate)"
 		c := palette.Cycle[(tick/2)%len(palette.Cycle)]
 		DrawString(s, (w-len(msg))/2, h/2-1, msg, palette.FG(c).Bold(true))
 		DrawString(s, (w-len(sub))/2, h/2+1, sub, palette.FG(palette.DimGray))
-		DrawString(s, (w-len(hint))/2, h/2+3, hint, hintStyle)
 		return
 	}
 
@@ -98,16 +94,13 @@ func RenderRickRoll(s tcell.Screen, tick int) {
 		}
 	}
 
-	// Reserve the bottom row for the hint; center the frame in the rest.
-	availH := h - 1
-	if availH < 1 {
-		availH = h
-	}
+	// Center the frame in the full available height (the bottom hint that
+	// used to sit on the last row has been removed).
 	originX := (w - fw) / 2
 	if originX < 0 {
 		originX = 0
 	}
-	originY := (availH - fh) / 2
+	originY := (h - fh) / 2
 	if originY < 0 {
 		originY = 0
 	}
@@ -132,6 +125,4 @@ func RenderRickRoll(s tcell.Screen, tick int) {
 		}
 		DrawString(s, originX, y, line, st)
 	}
-
-	DrawString(s, (w-len(hint))/2, h-1, hint, hintStyle)
 }

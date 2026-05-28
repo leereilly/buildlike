@@ -19,6 +19,7 @@ const (
 	PhaseHelp
 	PhaseDead
 	PhaseWon
+	PhaseEndSequence
 	PhaseRickRoll
 	PhaseQuit
 )
@@ -72,6 +73,11 @@ type Game struct {
 	// no-timeout style of the Konami code tracker above.
 	TitleDigit      rune
 	TitleDigitCount int
+
+	// EndSeq holds the live state of the post-level-5 finale: the typed
+	// shell commands, the spinner animation, and the latched result of
+	// the background network probe. Non-nil only during PhaseEndSequence.
+	EndSeq *ui.EndSequenceState
 }
 
 // TitleTripleTapCount is the number of consecutive identical-digit presses
@@ -336,10 +342,31 @@ func (g *Game) bugsAct() {
 	}
 }
 
+// AdvanceEndSequence is called once per ticker pulse while the game is in
+// PhaseEndSequence. When the sequence's pure-function timeline has played
+// out (typed prompts done, spinners settled or failure message held), it
+// tears down the EndSeq state and transitions to PhaseRickRoll. Calling this
+// in any other phase is a no-op so the main loop can dispatch it
+// unconditionally.
+func (g *Game) AdvanceEndSequence() {
+	if g.Phase != PhaseEndSequence || g.EndSeq == nil {
+		return
+	}
+	if ui.EndSequenceDone(g.EndSeq, g.Tick) {
+		g.EndSeq.Cancel()
+		g.EndSeq = nil
+		g.Phase = PhaseRickRoll
+	}
+}
+
 func (g *Game) ascend() {
 	if g.Floor.Level.Depth >= 5 {
-		// End of the final level: cue the surprise before the victory screen.
-		g.Phase = PhaseRickRoll
+		// End of the final level: kick off the celebration sequence.
+		// PhaseEndSequence handles the "You made it!" flash, the typed
+		// `cd developers/developers/developers` / `build` / `git status`
+		// shell, and the spinner output before the rick roll takes over.
+		g.EndSeq = ui.NewEndSequence(g.Tick, g.Username)
+		g.Phase = PhaseEndSequence
 		return
 	}
 	nextDepth := g.Floor.Level.Depth + 1

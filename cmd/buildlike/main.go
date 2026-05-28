@@ -87,9 +87,17 @@ func run(screen tcell.Screen, g *game.Game) {
 		case <-ticker.C:
 			g.Tick++
 			// Re-render phases that animate.
-			if g.Phase == game.PhaseTitle || g.Phase == game.PhaseRickRoll || g.Phase == game.PhaseUsername {
+			switch {
+			case g.Phase == game.PhaseTitle, g.Phase == game.PhaseRickRoll, g.Phase == game.PhaseUsername:
 				render(screen, g, tipIdx)
-			} else if g.Phase == game.PhasePlaying && g.Tick <= g.CopilotBlinkUntil {
+			case g.Phase == game.PhaseEndSequence:
+				// PhaseEndSequence is fully tick-driven: each pulse
+				// advances the typed-prompt/spinner animation and may
+				// auto-transition to the rick roll when the timeline
+				// finishes.
+				g.AdvanceEndSequence()
+				render(screen, g, tipIdx)
+			case g.Phase == game.PhasePlaying && g.Tick <= g.CopilotBlinkUntil:
 				// Copilot blink is active: re-render so the eyes can reopen
 				// once the blink expires.
 				render(screen, g, tipIdx)
@@ -184,6 +192,17 @@ func handleKey(g *game.Game, ev *tcell.EventKey) bool {
 		if ev.Rune() == 'r' || ev.Rune() == 'R' || a == game.ActConfirm {
 			g.StartRun()
 		}
+	case game.PhaseEndSequence:
+		// The end sequence is auto-advancing and is mostly hands-off, but
+		// the player can still bail out with q/Ctrl-C/Esc rather than be
+		// held hostage by the typewriter pacing.
+		if a == game.ActQuit {
+			if g.EndSeq != nil {
+				g.EndSeq.Cancel()
+				g.EndSeq = nil
+			}
+			return true
+		}
 	case game.PhaseRickRoll:
 		// Any key dismisses the easter egg and shows the victory screen.
 		g.Phase = game.PhaseWon
@@ -220,6 +239,8 @@ func render(screen tcell.Screen, g *game.Game, tipIdx int) {
 		ui.RenderHelp(screen)
 	case game.PhaseDead:
 		ui.RenderDeath(screen, g.Floor.Level.Depth, g.Player.MaxHP)
+	case game.PhaseEndSequence:
+		ui.RenderEndSequence(screen, g.EndSeq, g.Tick)
 	case game.PhaseRickRoll:
 		ui.RenderRickRoll(screen, g.Tick)
 	case game.PhaseWon:
