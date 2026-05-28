@@ -1,39 +1,27 @@
-To run,
+# Buildlike
 
-`go run ./cmd/buildlike`
+A tiny terminal roguelike themed on Microsoft Build. Squash bugs (`b`), grab green commits (`+`), and climb five letter-shaped dungeons that spell **B-U-I-L-D**.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/buildlike-dark.svg" width="100%">
-  <source media="(prefers-color-scheme: light)" srcset="docs/buildlike-light.svg" width="100%">
-  <img alt="buildlike ASCII animation" src="docs/buildlike-light.svg" width="100%">
-</picture>
+Survive to the end and `buildlike` will render a Build-themed contribution graph for your GitHub handle, but you have to earn it. Throw it on your README profile, your LinkedIn header, or print it and stink it on your (work) fridge.
 
-## Build
+![contribution graph](contribution-graph.svg)
 
-Requires [Go 1.26+](https://go.dev/dl/). Clone the repo, then from the project root:
+## Build and play
 
-**macOS / Linux**
+Requires [Go 1.26+](https://go.dev/dl/).
+
+```sh
+go run ./cmd/buildlike
+```
+
+Or build a binary:
 
 ```sh
 go build -o buildlike ./cmd/buildlike
 ./buildlike
 ```
 
-**Windows (PowerShell)**
 
-```powershell
-go build -o buildlike.exe ./cmd/buildlike
-.\buildlike.exe
-```
+## License
 
-**Any platform (no binary)**
-
-```sh
-go run ./cmd/buildlike
-```
-
-### Flags
-
-- `-seed <int>` — RNG seed (0 = time-based)
-- `-no-color` — disable colors for monochrome terminals
-- `-user <handle>` — fetch the given GitHub user's contributions and write a Build-themed `contribution-graph.svg` to the current directory, then exit (skips the game). Example: `./buildlike --user=leereilly`.
+[MIT](LICENSE)
