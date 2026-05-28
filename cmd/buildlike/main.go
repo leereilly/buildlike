@@ -4,12 +4,15 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/leereilly/buildlike/internal/contribgraph"
 	"github.com/leereilly/buildlike/internal/game"
 	"github.com/leereilly/buildlike/internal/rng"
 	"github.com/leereilly/buildlike/internal/ui"
@@ -19,9 +22,18 @@ import (
 func main() {
 	seed := flag.Int64("seed", 0, "RNG seed (0 = time-based)")
 	noColor := flag.Bool("no-color", false, "disable colors for monochrome terminals")
+	user := flag.String("user", "", "GitHub handle: render its Build-themed contribution graph SVG and exit (skips the game)")
 	flag.Parse()
 
 	palette.NoColor = *noColor
+
+	if handle := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(*user), "@")); handle != "" {
+		if err := generateContribGraph(handle); err != nil {
+			fmt.Fprintf(os.Stderr, "buildlike: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	screen, err := tcell.NewScreen()
 	if err != nil {
@@ -247,4 +259,19 @@ func render(screen tcell.Screen, g *game.Game, tipIdx int) {
 		ui.RenderWon(screen, g.Player.MaxHP, g.Player.Vaulted)
 	}
 	screen.Show()
+}
+
+// generateContribGraph fetches handle's GitHub contribution data and writes
+// the Build-themed SVG to contribgraph.DefaultOutputPath in the current
+// working directory. It runs without ever touching tcell so the caller can
+// use --user from a non-interactive shell (CI, docs builds, etc.).
+func generateContribGraph(handle string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	out := contribgraph.DefaultOutputPath
+	if _, err := contribgraph.Generate(ctx, nil, handle, out); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stdout, "Wrote @%s's Build-themed contribution graph to %s\n", handle, out)
+	return nil
 }

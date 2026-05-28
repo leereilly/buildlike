@@ -7,10 +7,12 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/leereilly/buildlike/internal/contribgraph"
 	"github.com/leereilly/buildlike/internal/ui/palette"
 )
 
@@ -140,6 +142,12 @@ type EndSequenceState struct {
 	// in that case.
 	Username string
 
+	// GraphPath is where the Build-themed contribution graph SVG will be
+	// written when the success branch reaches the spinner stage. Defaults
+	// to contribgraph.DefaultOutputPath (i.e. "contribution-graph.svg" in
+	// the current working directory).
+	GraphPath string
+
 	// status is the EndStatus value, accessed atomically because the
 	// network goroutine writes it from a different goroutine than the
 	// renderer reads it.
@@ -148,12 +156,82 @@ type EndSequenceState struct {
 	// cancel stops the in-flight probe if the sequence is torn down early
 	// (e.g. the player rage-quits before the result lands).
 	cancel context.CancelFunc
+
+	// graphOnce guarantees the contribution-graph fetch fires exactly
+	// once per end sequence, no matter how many render or advance ticks
+	// re-enter MaybeStartContribGraph.
+	graphOnce sync.Once
 }
 
 // endStatusClient is overridable by tests so we can pin the probe to a
 // deterministic outcome without doing real HTTP. Production callers leave
 // it nil and we fall through to the default net/http implementation.
 var endStatusClient func(ctx context.Context, username string) EndStatus
+
+// endContribGenerator is the contribution-graph generator hook. Tests
+// override this to avoid the network and to assert on the call. Production
+// callers leave it nil and we fall through to contribgraph.Generate, which
+// fetches https://github.com/<user>.contribs and writes the SVG.
+var endContribGenerator func(ctx context.Context, username, outPath string) error
+
+// MaybeStartContribGraph kicks off the one-shot Build-themed contribution
+// graph fetch the first time the post-build spinners begin to roll on the
+// success branch. The render side calls this every frame; the sync.Once
+// guarantees the actual fetch + file write happens at most once per end
+// sequence. Returns true on the call that actually scheduled the goroutine.
+//
+// Preconditions for firing (matching the spec — "once the spinners start,
+// and the username is valid and there's internet"):
+//   - A username was entered (an empty handle means there is no graph to
+//     render).
+//   - The probe has settled as EndStatusOK (i.e. github.com is reachable
+//     and @username resolves to a real account).
+//   - The scene has advanced past the decision point, which is the same
+//     tick the first spinner line starts spinning in drawEndSuccess.
+func (es *EndSequenceState) MaybeStartContribGraph(tick int) bool {
+	if es == nil || es.Username == "" {
+		return false
+	}
+	if es.Status() != EndStatusOK {
+		return false
+	}
+	scene := tick - es.StartTick
+	decisionScene, ok := endDecisionScene(scene)
+	if !ok || scene < decisionScene {
+		return false
+	}
+	started := false
+	es.graphOnce.Do(func() {
+		started = true
+		out := es.GraphPath
+		if out == "" {
+			out = contribgraph.DefaultOutputPath
+		}
+		go runContribGraph(es.Username, out)
+	})
+	return started
+}
+
+// runContribGraph is the goroutine body for the one-shot generator. It
+// uses a generous context timeout so the fetch can complete even on a
+// slow link without ever blocking the main render loop. Errors are
+// intentionally swallowed: the player has already been told via the
+// probe that the internet is up, so failing the SVG write here doesn't
+// need a second on-screen surface.
+func runContribGraph(username, outPath string) {
+	fn := endContribGenerator
+	if fn == nil {
+		fn = func(ctx context.Context, username, outPath string) error {
+			_, err := contribgraph.Generate(ctx, nil, username, outPath)
+			return err
+		}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_ = fn(ctx, username, outPath)
+}
+
+
 
 // NewEndSequence allocates the state and kicks off the network probe in a
 // background goroutine. The probe is best-effort: any failure (DNS, TLS,
@@ -164,6 +242,7 @@ func NewEndSequence(startTick int, username string) *EndSequenceState {
 	es := &EndSequenceState{
 		StartTick: startTick,
 		Username:  username,
+		GraphPath: contribgraph.DefaultOutputPath,
 		cancel:    cancel,
 	}
 	atomic.StoreInt32(&es.status, int32(EndStatusPending))

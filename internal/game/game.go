@@ -347,11 +347,14 @@ func (g *Game) bugsAct() {
 // out (typed prompts done, spinners settled or failure message held), it
 // tears down the EndSeq state and transitions to PhaseRickRoll. Calling this
 // in any other phase is a no-op so the main loop can dispatch it
-// unconditionally.
+// unconditionally. As a side-effect it also nudges the contribution-graph
+// generator: once the success-branch spinners begin, the EndSeq fires a
+// one-shot goroutine that writes contribution-graph.svg.
 func (g *Game) AdvanceEndSequence() {
 	if g.Phase != PhaseEndSequence || g.EndSeq == nil {
 		return
 	}
+	g.EndSeq.MaybeStartContribGraph(g.Tick)
 	if ui.EndSequenceDone(g.EndSeq, g.Tick) {
 		g.EndSeq.Cancel()
 		g.EndSeq = nil

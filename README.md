@@ -36,3 +36,4 @@ go run ./cmd/buildlike
 
 - `-seed <int>` — RNG seed (0 = time-based)
 - `-no-color` — disable colors for monochrome terminals
+- `-user <handle>` — fetch the given GitHub user's contributions and write a Build-themed `contribution-graph.svg` to the current directory, then exit (skips the game). Example: `./buildlike --user=leereilly`.

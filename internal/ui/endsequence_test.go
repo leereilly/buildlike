@@ -3,6 +3,8 @@ package ui
 import (
 	"context"
 	"runtime"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -153,6 +155,180 @@ func statusName(s EndStatus) string {
 		return "no_user"
 	default:
 		return "pending"
+	}
+}
+
+// pinContribGenerator swaps the contribution-graph generator hook for the
+// duration of a test so we can assert on the fact of the call (and on its
+// arguments) without doing any real HTTP. Returns a cleanup the caller
+// must defer along with a *waitable* counter that the test can wait on.
+type contribCall struct {
+	username string
+	outPath  string
+}
+
+func pinContribGenerator(t *testing.T) (calls *[]contribCall, fired chan struct{}, cleanup func()) {
+	t.Helper()
+	var mu sync.Mutex
+	got := make([]contribCall, 0, 2)
+	fired = make(chan struct{}, 1)
+	prev := endContribGenerator
+	endContribGenerator = func(ctx context.Context, username, outPath string) error {
+		mu.Lock()
+		got = append(got, contribCall{username: username, outPath: outPath})
+		mu.Unlock()
+		select {
+		case fired <- struct{}{}:
+		default:
+		}
+		return nil
+	}
+	cleanup = func() { endContribGenerator = prev }
+	calls = &got
+	return calls, fired, cleanup
+}
+
+// TestContribGraphFiresOnceOnSuccess confirms that the spec's "once the
+// spinners start, AND username is valid, AND there's internet" gate
+// fires the generator exactly one time per end sequence, even when
+// MaybeStartContribGraph is called many ticks in a row.
+func TestContribGraphFiresOnceOnSuccess(t *testing.T) {
+	defer pinStatus(t, EndStatusOK)()
+	calls, fired, cleanup := pinContribGenerator(t)
+	defer cleanup()
+
+	const startTick = 100
+	es := NewEndSequence(startTick, "octocat")
+	defer es.Cancel()
+	waitForStatus(t, es, EndStatusOK)
+
+	cdStart := endFlashTicks + endPostFlash
+	cdDone := cdStart + endCdTotalTicks()
+	buildStart := cdDone + endPostCdPause
+	buildDone := buildStart + len(endBuildText)*endTypeRate
+	decisionScene := buildDone + endPostBuildPause
+
+	// Before the decision scene we should never schedule a fetch — the
+	// spinners haven't started yet.
+	for tick := startTick; tick < startTick+decisionScene; tick += 5 {
+		if es.MaybeStartContribGraph(tick) {
+			t.Fatalf("graph fired before decision scene at tick %d", tick)
+		}
+	}
+
+	// First tick at or after the decision scene fires the generator…
+	if !es.MaybeStartContribGraph(startTick + decisionScene) {
+		t.Errorf("graph did not fire at decision-scene tick")
+	}
+	// …and every subsequent tick is a no-op (sync.Once does its job).
+	for i := 1; i < 10; i++ {
+		if es.MaybeStartContribGraph(startTick + decisionScene + i) {
+			t.Errorf("graph fired more than once (extra firing at +%d)", i)
+		}
+	}
+
+	select {
+	case <-fired:
+	case <-time.After(2 * time.Second):
+		t.Fatal("generator goroutine never ran")
+	}
+	// Wait for any second goroutine that might have been scheduled to
+	// settle — there shouldn't be one, but the scheduler is async.
+	for i := 0; i < 20; i++ {
+		runtime.Gosched()
+		time.Sleep(2 * time.Millisecond)
+	}
+	if got := len(*calls); got != 1 {
+		t.Errorf("generator call count = %d, want 1", got)
+	}
+	if got := (*calls)[0]; got.username != "octocat" || got.outPath == "" {
+		t.Errorf("generator called with %+v, want username=octocat and a non-empty outPath", got)
+	}
+}
+
+// TestContribGraphSkippedWhenOffline guards the "and there's internet"
+// half of the gate — an Offline probe must never write a file (which
+// would be misleading: the player is being told the graph couldn't be
+// produced, then we'd silently produce one).
+func TestContribGraphSkippedWhenOffline(t *testing.T) {
+	for _, s := range []EndStatus{EndStatusOffline, EndStatusNoUser, EndStatusPending} {
+		t.Run(statusName(s), func(t *testing.T) {
+			if s != EndStatusPending {
+				defer pinStatus(t, s)()
+			}
+			var fireCount int32
+			prev := endContribGenerator
+			endContribGenerator = func(ctx context.Context, username, outPath string) error {
+				atomic.AddInt32(&fireCount, 1)
+				return nil
+			}
+			defer func() { endContribGenerator = prev }()
+
+			const startTick = 0
+			es := NewEndSequence(startTick, "octocat")
+			defer es.Cancel()
+			if s != EndStatusPending {
+				waitForStatus(t, es, s)
+			}
+
+			cdStart := endFlashTicks + endPostFlash
+			cdDone := cdStart + endCdTotalTicks()
+			buildStart := cdDone + endPostCdPause
+			buildDone := buildStart + len(endBuildText)*endTypeRate
+			decisionScene := buildDone + endPostBuildPause
+
+			for tick := 0; tick < decisionScene+endStatusTimeout+50; tick += 7 {
+				es.MaybeStartContribGraph(tick)
+			}
+			// Give any (incorrectly) scheduled goroutine a chance to run.
+			for i := 0; i < 20; i++ {
+				runtime.Gosched()
+				time.Sleep(2 * time.Millisecond)
+			}
+			if got := atomic.LoadInt32(&fireCount); got != 0 {
+				t.Errorf("expected generator to NOT fire for status %v, got %d call(s)",
+					s, got)
+			}
+		})
+	}
+}
+
+// TestContribGraphSkippedWhenNoUsername mirrors the "username is valid"
+// half of the gate — if the player skipped the title-screen handle entry
+// there's nothing to fetch.
+func TestContribGraphSkippedWhenNoUsername(t *testing.T) {
+	defer pinStatus(t, EndStatusOK)()
+	var fireCount int32
+	prev := endContribGenerator
+	endContribGenerator = func(ctx context.Context, username, outPath string) error {
+		atomic.AddInt32(&fireCount, 1)
+		return nil
+	}
+	defer func() { endContribGenerator = prev }()
+
+	const startTick = 0
+	es := NewEndSequence(startTick, "") // no username
+	defer es.Cancel()
+	waitForStatus(t, es, EndStatusOK)
+
+	cdStart := endFlashTicks + endPostFlash
+	cdDone := cdStart + endCdTotalTicks()
+	buildStart := cdDone + endPostCdPause
+	buildDone := buildStart + len(endBuildText)*endTypeRate
+	decisionScene := buildDone + endPostBuildPause
+
+	for tick := 0; tick < decisionScene+200; tick += 5 {
+		if es.MaybeStartContribGraph(tick) {
+			t.Fatalf("graph fired with empty username at tick %d", tick)
+		}
+	}
+	// Give any (incorrectly) scheduled goroutine a chance to run.
+	for i := 0; i < 20; i++ {
+		runtime.Gosched()
+		time.Sleep(2 * time.Millisecond)
+	}
+	if got := atomic.LoadInt32(&fireCount); got != 0 {
+		t.Errorf("expected generator to NOT fire with empty username, got %d call(s)", got)
 	}
 }
 
