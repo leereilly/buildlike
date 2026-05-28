@@ -58,6 +58,11 @@ type Game struct {
 	// Copilot mascot's eyes return to the open state. Each PhasePlaying
 	// keypress arms it to Tick+3 so the eyes stay shut for ~300ms.
 	CopilotBlinkUntil int
+
+	// JesterDepth is the BUILD floor (1..5) on which the white 'j' jester
+	// easter egg appears for this run. Rolled in StartRun. 0 means "no
+	// jester yet" (pre-run).
+	JesterDepth int
 }
 
 func New(s tcell.Screen, r *rng.RNG) *Game {
@@ -130,7 +135,8 @@ func (g *Game) StartRun() {
 	}
 	g.ClippyPresses = 0
 	g.CopilotBlinkUntil = 0
-	g.Floor = BuildFloor(1, g.Player, g.RNG)
+	g.JesterDepth = g.RNG.IntRange(1, 5)
+	g.Floor = BuildFloor(1, g.Player, g.RNG, g.JesterDepth == 1)
 	g.Log = ui.NewLog(200)
 	g.Log.Push("Welcome to Buildlike. Squash bugs, ship the build.", ui.LogInfo)
 	if g.Player.Invincible {
@@ -188,6 +194,12 @@ func (g *Game) tryMove(dx, dy int) {
 			return
 		}
 	}
+	// Jester at dest? Bump-attack (Falconhoof easter egg).
+	if j := g.Floor.Jester; j != nil && j.Alive && j.Pos == dest {
+		j.Alive = false
+		g.Log.Push(`"Kill jester" </falconhoof>`, ui.LogSpecial)
+		return
+	}
 	if !g.Floor.Level.Walkable(dest) {
 		return
 	}
@@ -224,6 +236,9 @@ func (g *Game) bugsAct() {
 			occ[b.Pos] = true
 		}
 	}
+	if j := g.Floor.Jester; j != nil && j.Alive {
+		occ[j.Pos] = true
+	}
 	for _, b := range g.Floor.Bugs {
 		if dmg := b.Act(g.Floor.Level, g.Player.Pos, occ, g.RNG); dmg > 0 {
 			if g.Player.Invincible {
@@ -236,6 +251,22 @@ func (g *Game) bugsAct() {
 			g.Log.Push(ui.PickHurtFlavor(g.RNG), ui.LogBad)
 		}
 	}
+	if j := g.Floor.Jester; j != nil && j.Alive {
+		if dmg := j.Act(g.Floor.Level, g.Player.Pos, occ, g.RNG); dmg > 0 {
+			if g.Player.Invincible {
+				if g.RNG.Chance(0.15) {
+					g.Log.Push("The jester cackles, but you shrug it off. (INVINCIBLE)", ui.LogSpecial)
+				}
+			} else {
+				g.Player.HP -= dmg
+				if g.Player.HP <= 0 {
+					g.Log.Push("Jester kills *you*", ui.LogBad)
+				} else {
+					g.Log.Push("The jester tells you a bad joke.", ui.LogBad)
+				}
+			}
+		}
+	}
 }
 
 func (g *Game) ascend() {
@@ -244,7 +275,8 @@ func (g *Game) ascend() {
 		g.Phase = PhaseRickRoll
 		return
 	}
-	g.Floor = BuildFloor(g.Floor.Level.Depth+1, g.Player, g.RNG)
+	nextDepth := g.Floor.Level.Depth + 1
+	g.Floor = BuildFloor(nextDepth, g.Player, g.RNG, g.JesterDepth == nextDepth)
 	letters := []byte{'B', 'U', 'I', 'L', 'D'}
 	letter := byte('?')
 	if d := g.Floor.Level.Depth; d >= 1 && d <= len(letters) {

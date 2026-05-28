@@ -48,7 +48,9 @@ func RenderTitle(s tcell.Screen, tip string, tick int, konamiArmed bool) {
 		c := palette.Cycle[(tick/2)%len(palette.Cycle)]
 		DrawString(s, (w-runeLen(msg))/2, startY+len(titleArt)+4, msg, palette.FG(c).Bold(true))
 	}
-	DrawString(s, (w-len(tip))/2, h-2, tip, palette.FG(palette.Magenta))
+	DrawString(s, (w-len(tip))/2, h-3, tip, palette.FG(palette.Magenta))
+	credits := "Made with <3 by @LeeReilly and @GitHubCopilot"
+	DrawString(s, (w-len(credits))/2, h-1, credits, palette.FG(palette.DimGray))
 }
 
 func runeLen(s string) int {

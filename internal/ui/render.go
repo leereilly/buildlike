@@ -49,6 +49,7 @@ type FloorView interface {
 	GetLevel() *world.Level
 	GetBugs() []*entity.Bug
 	GetPowerups() []*entity.Powerup
+	GetJester() *entity.Jester
 }
 
 func drawHUD(s tcell.Screen, p *entity.Player, l *world.Level, username string) {
@@ -185,6 +186,10 @@ func drawMap(s tcell.Screen, p *entity.Player, fs FloorView) {
 			continue
 		}
 		DrawRune(s, b.Pos.X, b.Pos.Y+offsetY, 'b', palette.FG(palette.Red).Bold(true))
+	}
+	// Jester (easter egg)
+	if j := fs.GetJester(); j != nil && j.Alive {
+		DrawRune(s, j.Pos.X, j.Pos.Y+offsetY, 'j', palette.FG(palette.White).Bold(true))
 	}
 	// Player
 	DrawRune(s, p.Pos.X, p.Pos.Y+offsetY, '@', palette.FG(palette.Yellow).Bold(true))

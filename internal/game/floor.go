@@ -13,11 +13,14 @@ type FloorState struct {
 	Level    *world.Level
 	Bugs     []*entity.Bug
 	Powerups []*entity.Powerup
+	Jester   *entity.Jester
 }
 
 // BuildFloor generates a floor for the given depth (1-5, B-U-I-L-D) with bugs
 // and powerups. The dungeon silhouette is shaped like the depth's letter.
-func BuildFloor(depth int, p *entity.Player, r *rng.RNG) *FloorState {
+// If withJester is true, a single white 'j' jester easter-egg is spawned on
+// the floor as well.
+func BuildFloor(depth int, p *entity.Player, r *rng.RNG, withJester bool) *FloorState {
 	const W, H = 80, 22
 	var l *world.Level
 	for attempt := 0; attempt < 24; attempt++ {
@@ -50,6 +53,12 @@ func BuildFloor(depth int, p *entity.Player, r *rng.RNG) *FloorState {
 		}
 		fs.Powerups = append(fs.Powerups, &entity.Powerup{Pos: pos})
 		occ[pos] = true
+	}
+	if withJester {
+		if pos, ok := randomFloor(l, r, occ, true); ok {
+			fs.Jester = entity.NewJester(pos)
+			occ[pos] = true
+		}
 	}
 	return fs
 }
@@ -87,3 +96,4 @@ func (fs *FloorState) String() string {
 func (fs *FloorState) GetLevel() *world.Level         { return fs.Level }
 func (fs *FloorState) GetBugs() []*entity.Bug         { return fs.Bugs }
 func (fs *FloorState) GetPowerups() []*entity.Powerup { return fs.Powerups }
+func (fs *FloorState) GetJester() *entity.Jester      { return fs.Jester }
