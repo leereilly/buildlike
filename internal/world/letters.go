@@ -1,10 +1,12 @@
 package world
 
 // Letter masks for the five BUILD floors. Each letter is authored at a small
-// "stamp" size (6 columns × 9 rows) using '#' for inside-mask and '.' for
-// outside. The stamp is scaled up to mask grid size by repeating each logical
-// cell sx × sy times. With sx=10, sy=2 we get a 60×18 letter that fits inside
-// the standard 80×22 level with comfortable margins.
+// "stamp" size (8 columns × 10 rows) using '#' for inside-mask and '.' for
+// outside. Strokes are intentionally 3 stamp cells thick (≈3× the previous
+// design) so the letters read clearly as B, U, I, L, D at level scale. The
+// stamp is scaled up to mask grid size by repeating each logical cell sx × sy
+// times. With sx=9, sy=2 we get a 72×20 letter that fits inside the standard
+// 80×22 level with a comfortable margin.
 //
 // At runtime, LetterFor(depth) returns a LetterMask sized exactly to a level
 // (level coordinates), with the letter centered. BSP generation and rendering
@@ -12,14 +14,14 @@ package world
 // dungeon's silhouette is the letter itself.
 
 const (
-	maskLevelW    = 80
-	maskLevelH    = 22
-	maskScaleX    = 10
-	maskScaleY    = 2
-	maskLetterW   = 60 // 6 * sx
-	maskLetterH   = 18 // 9 * sy
-	maskOffsetX   = (maskLevelW - maskLetterW) / 2 // = 10
-	maskOffsetY   = (maskLevelH - maskLetterH) / 2 // = 2
+	maskLevelW  = 80
+	maskLevelH  = 22
+	maskScaleX  = 9
+	maskScaleY  = 2
+	maskLetterW = 72                              // 8 * sx
+	maskLetterH = 20                              // 10 * sy
+	maskOffsetX = (maskLevelW - maskLetterW) / 2  // = 4
+	maskOffsetY = (maskLevelH - maskLetterH) / 2  // = 1
 )
 
 // LetterMask is a level-sized boolean grid. cells[y][x] == true means the cell
@@ -56,68 +58,77 @@ func (m *LetterMask) Edge(p Point) bool {
 	return false
 }
 
-// stamp returns the small (6×9) logical bitmap for the given letter.
-func stamp(letter byte) []string {
+// Stamp returns the small (8×10) logical bitmap for the given letter ('B',
+// 'U', 'I', 'L', 'D'). Each row is a string of length 8 where '#' marks an
+// inside cell and '.' marks an outside cell. Returns nil for unknown letters.
+// Exported so UI code (e.g. the teleport animation) can render the same
+// silhouette used to build the level mask.
+func Stamp(letter byte) []string {
 	switch letter {
 	case 'B':
 		return []string{
-			"######",
-			"######",
-			"#....#",
-			"#....#",
-			"######",
-			"#....#",
-			"#....#",
-			"######",
-			"######",
+			"########",
+			"########",
+			"###..###",
+			"###..###",
+			"########",
+			"########",
+			"###..###",
+			"###..###",
+			"########",
+			"########",
 		}
 	case 'U':
 		return []string{
-			"#....#",
-			"#....#",
-			"#....#",
-			"#....#",
-			"#....#",
-			"#....#",
-			"#....#",
-			"######",
-			"######",
+			"###..###",
+			"###..###",
+			"###..###",
+			"###..###",
+			"###..###",
+			"###..###",
+			"###..###",
+			"########",
+			"########",
+			"########",
 		}
 	case 'I':
 		return []string{
-			"######",
-			"######",
-			"..##..",
-			"..##..",
-			"..##..",
-			"..##..",
-			"..##..",
-			"######",
-			"######",
+			"########",
+			"########",
+			"..####..",
+			"..####..",
+			"..####..",
+			"..####..",
+			"..####..",
+			"..####..",
+			"########",
+			"########",
 		}
 	case 'L':
 		return []string{
-			"##....",
-			"##....",
-			"##....",
-			"##....",
-			"##....",
-			"##....",
-			"##....",
-			"######",
-			"######",
+			"###.....",
+			"###.....",
+			"###.....",
+			"###.....",
+			"###.....",
+			"###.....",
+			"###.....",
+			"########",
+			"########",
+			"########",
 		}
 	case 'D':
 		return []string{
-			"#####.",
-			"#####.",
-			"#....#",
-			"#....#",
-			"#....#",
-			"#....#",
-			"#....#",
-			"#####.",
-			"#####.",
+			"######..",
+			"########",
+			"###...##",
+			"###....#",
+			"###....#",
+			"###....#",
+			"###....#",
+			"###...##",
+			"########",
+			"######..",
 		}
 	}
 	return nil
@@ -134,7 +145,7 @@ func LetterFor(depth int) *LetterMask {
 }
 
 func makeMask(letter byte, colorIx int) *LetterMask {
-	st := stamp(letter)
+	st := Stamp(letter)
 	if st == nil {
 		return nil
 	}

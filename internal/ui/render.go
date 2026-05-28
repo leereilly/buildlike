@@ -14,10 +14,13 @@ func DrawRune(s tcell.Screen, x, y int, r rune, st tcell.Style) {
 	s.SetContent(x, y, r, nil, st)
 }
 
-// DrawString writes a styled string starting at (x, y).
+// DrawString writes a styled string starting at (x, y), advancing one screen
+// column per rune (not per byte) so multi-byte runes like ★ render correctly.
 func DrawString(s tcell.Screen, x, y int, text string, st tcell.Style) {
-	for i, r := range text {
-		s.SetContent(x+i, y, r, nil, st)
+	col := 0
+	for _, r := range text {
+		s.SetContent(x+col, y, r, nil, st)
+		col++
 	}
 }
 
@@ -37,7 +40,7 @@ func RenderGame(s tcell.Screen, p *entity.Player, fs FloorView, log *MessageLog)
 	Clear(s)
 	drawHUD(s, p, fs.GetLevel())
 	drawMap(s, p, fs)
-	drawLogTail(s, log)
+	drawLogTail(s, log, fs.GetLevel().H)
 }
 
 // FloorView is the interface RenderGame needs. We avoid an import cycle with
@@ -100,6 +103,12 @@ func drawHUD(s tcell.Screen, p *entity.Player, l *world.Level) {
 			DrawRune(s, bx+i, 0, '░', palette.FG(palette.DimGray))
 		}
 	}
+	if p.Invincible {
+		// Pulse a rainbow star just past the HP bar so the player has a
+		// persistent reminder that the Konami cheat is active.
+		c := palette.Cycle[((w*7)%len(palette.Cycle))]
+		DrawRune(s, bx+barW+1, 0, '★', palette.FG(c).Bold(true))
+	}
 }
 
 func drawMap(s tcell.Screen, p *entity.Player, fs FloorView) {
@@ -157,15 +166,25 @@ func drawMap(s tcell.Screen, p *entity.Player, fs FloorView) {
 	DrawRune(s, p.Pos.X, p.Pos.Y+offsetY, '@', palette.FG(palette.Yellow).Bold(true))
 }
 
-func drawLogTail(s tcell.Screen, log *MessageLog) {
+func drawLogTail(s tcell.Screen, log *MessageLog, levelH int) {
 	w, h := s.Size()
-	// Log area: bottom 2 rows.
-	y0 := h - 2
+	// Position the log to the right of the Copilot glyph so it looks like
+	// Copilot is speaking. Glyph sits at x=0, y=levelH+2..levelH+5 (4 rows).
+	// Place the 2 log lines on the middle two rows of the glyph.
+	const mapOriginY = 1
+	glyphTop := mapOriginY + levelH + 1
+	y0 := glyphTop + 1
+	x0 := CopilotArtW + 2 // 2-column gap after the glyph
+	if y0+2 > h {
+		// Fallback: bottom of the screen if it doesn't fit beside the glyph.
+		y0 = h - 2
+		x0 = 1
+	}
 	tail := log.Tail(2)
+	bg := palette.Style(palette.White, palette.Black)
 	for i := 0; i < 2; i++ {
-		// clear line
-		for x := 0; x < w; x++ {
-			s.SetContent(x, y0+i, ' ', nil, palette.Style(palette.White, palette.Black))
+		for x := x0; x < w; x++ {
+			s.SetContent(x, y0+i, ' ', nil, bg)
 		}
 		if i >= len(tail) {
 			continue
@@ -184,7 +203,7 @@ func drawLogTail(s tcell.Screen, log *MessageLog) {
 		default:
 			c = palette.White
 		}
-		DrawString(s, 1, y0+i, "> "+e.Text, palette.FG(c))
+		DrawString(s, x0, y0+i, "> "+e.Text, palette.FG(c))
 	}
 }
 

@@ -30,6 +30,24 @@ type Game struct {
 	Log    *ui.MessageLog
 	Phase  Phase
 	Tick   int // global tick counter for animation
+
+	// Konami code state. KonamiProgress tracks how many keystrokes of the
+	// classic ↑↑↓↓←→←→BA sequence have been entered on the title screen so
+	// far. Once the full sequence is entered, KonamiArmed flips true and
+	// every subsequent StartRun grants the player invincibility.
+	KonamiProgress int
+	KonamiArmed    bool
+
+	// ClippyPresses counts player keystrokes on the second floor so the
+	// Clippy easter-egg overlay can fade out after the initial grace
+	// window. It resets to 0 in StartRun and is only incremented while
+	// the player is on depth 2.
+	ClippyPresses int
+
+	// CopilotBlinkUntil is the global Tick value at and beyond which the
+	// Copilot mascot's eyes return to the open state. Each PhasePlaying
+	// keypress arms it to Tick+3 so the eyes stay shut for ~300ms.
+	CopilotBlinkUntil int
 }
 
 func New(s tcell.Screen, r *rng.RNG) *Game {
@@ -45,9 +63,17 @@ func New(s tcell.Screen, r *rng.RNG) *Game {
 // StartRun (re)initializes the player and generates level 1.
 func (g *Game) StartRun() {
 	g.Player = entity.NewPlayer()
+	if g.KonamiArmed {
+		g.Player.Invincible = true
+	}
+	g.ClippyPresses = 0
+	g.CopilotBlinkUntil = 0
 	g.Floor = BuildFloor(1, g.Player, g.RNG)
 	g.Log = ui.NewLog(200)
 	g.Log.Push("Welcome to Buildlike. Squash bugs, ship the build.", ui.LogInfo)
+	if g.Player.Invincible {
+		g.Log.Push("★ Konami code accepted: you are INVINCIBLE. ★", ui.LogSpecial)
+	}
 	g.Phase = PhasePlaying
 }
 
@@ -138,6 +164,12 @@ func (g *Game) bugsAct() {
 	}
 	for _, b := range g.Floor.Bugs {
 		if dmg := b.Act(g.Floor.Level, g.Player.Pos, occ, g.RNG); dmg > 0 {
+			if g.Player.Invincible {
+				if g.RNG.Chance(0.15) {
+					g.Log.Push("You shrug off the bite. (INVINCIBLE)", ui.LogSpecial)
+				}
+				continue
+			}
 			g.Player.HP -= dmg
 			g.Log.Push(ui.PickHurtFlavor(g.RNG), ui.LogBad)
 		}
@@ -146,10 +178,10 @@ func (g *Game) bugsAct() {
 
 func (g *Game) ascend() {
 	if g.Floor.Level.Depth >= 5 {
-		g.Phase = PhaseWon
+		// End of the final level: cue the surprise before the victory screen.
+		g.Phase = PhaseRickRoll
 		return
 	}
-	wasFirst := g.Floor.Level.Depth == 1
 	g.Floor = BuildFloor(g.Floor.Level.Depth+1, g.Player, g.RNG)
 	letters := []byte{'B', 'U', 'I', 'L', 'D'}
 	letter := byte('?')
@@ -157,8 +189,4 @@ func (g *Game) ascend() {
 		letter = letters[d-1]
 	}
 	g.Log.Push(fmt.Sprintf("You ascend to level %d — %c.", g.Floor.Level.Depth, letter), ui.LogInfo)
-	if wasFirst {
-		// End of the first level: cue the surprise.
-		g.Phase = PhaseRickRoll
-	}
 }

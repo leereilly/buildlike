@@ -74,7 +74,7 @@ func RenderRickRoll(s tcell.Screen, tick int) {
 	Clear(s)
 	w, h := s.Size()
 
-	hint := "Press any key to continue..."
+	hint := "Developers, developers, developers... never gonna give you up."
 	hintStyle := palette.FG(palette.White)
 
 	if len(rickFrames) == 0 {

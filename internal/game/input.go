@@ -95,6 +95,37 @@ func MapKey(ev *tcell.EventKey) Action {
 	return ActNone
 }
 
+// KonamiLen is the number of keystrokes in the classic Konami code
+// (↑ ↑ ↓ ↓ ← → ← → B A).
+const KonamiLen = 10
+
+// konamiSlots[i] reports whether a given key event is the expected keystroke
+// at position i of the Konami sequence. Arrow keys are matched exactly; the
+// terminating B and A letters accept either case.
+var konamiSlots = []func(*tcell.EventKey) bool{
+	isKonamiUp, isKonamiUp,
+	isKonamiDown, isKonamiDown,
+	isKonamiLeft, isKonamiRight,
+	isKonamiLeft, isKonamiRight,
+	isKonamiB, isKonamiA,
+}
+
+// KonamiMatchesSlot reports whether ev is the expected keystroke at position
+// i of the Konami sequence. Out-of-range slots return false.
+func KonamiMatchesSlot(i int, ev *tcell.EventKey) bool {
+	if i < 0 || i >= KonamiLen {
+		return false
+	}
+	return konamiSlots[i](ev)
+}
+
+func isKonamiUp(ev *tcell.EventKey) bool    { return ev.Key() == tcell.KeyUp }
+func isKonamiDown(ev *tcell.EventKey) bool  { return ev.Key() == tcell.KeyDown }
+func isKonamiLeft(ev *tcell.EventKey) bool  { return ev.Key() == tcell.KeyLeft }
+func isKonamiRight(ev *tcell.EventKey) bool { return ev.Key() == tcell.KeyRight }
+func isKonamiB(ev *tcell.EventKey) bool     { r := ev.Rune(); return r == 'b' || r == 'B' }
+func isKonamiA(ev *tcell.EventKey) bool     { r := ev.Rune(); return r == 'a' || r == 'A' }
+
 // Delta returns the (dx, dy) for a movement action, or (0,0,false) if not a move.
 func Delta(a Action) (int, int, bool) {
 	switch a {

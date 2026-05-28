@@ -13,12 +13,14 @@ var titleArt = []string{
 	"  ██████╔╝╚██████╔╝██║███████╗██████╔╝",
 	"  ╚═════╝  ╚═════╝ ╚═╝╚══════╝╚═════╝ ",
 	"                                      ",
-	"        ~ a charming roguelike ~      ",
+	"        ~ A charming roguelike ~      ",
 }
 
 // RenderTitle draws the title screen. `tip` is the rotating bottom hint and
-// `tick` drives the gentle rainbow shimmer on the wordmark.
-func RenderTitle(s tcell.Screen, tip string, tick int) {
+// `tick` drives the gentle rainbow shimmer on the wordmark. When
+// `konamiArmed` is true, a rainbow "INVINCIBLE MODE" line is rendered below
+// the prompt as visual confirmation that the Konami code was accepted.
+func RenderTitle(s tcell.Screen, tip string, tick int, konamiArmed bool) {
 	Clear(s)
 	w, h := s.Size()
 	startY := h/2 - len(titleArt)/2 - 2
@@ -39,8 +41,13 @@ func RenderTitle(s tcell.Screen, tip string, tick int) {
 			col++
 		}
 	}
-	prompt := "Press any key to descend.   q to quit."
+	prompt := "Press any key to begin. Q to quit."
 	DrawString(s, (w-len(prompt))/2, startY+len(titleArt)+2, prompt, palette.FG(palette.White))
+	if konamiArmed {
+		msg := "★ KONAMI CODE ACCEPTED — INVINCIBLE MODE ARMED ★"
+		c := palette.Cycle[(tick/2)%len(palette.Cycle)]
+		DrawString(s, (w-runeLen(msg))/2, startY+len(titleArt)+4, msg, palette.FG(c).Bold(true))
+	}
 	DrawString(s, (w-len(tip))/2, h-2, tip, palette.FG(palette.Magenta))
 }
 

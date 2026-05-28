@@ -89,6 +89,10 @@ func run(screen tcell.Screen, g *game.Game) {
 			// Re-render phases that animate.
 			if g.Phase == game.PhaseTitle || g.Phase == game.PhaseRickRoll {
 				render(screen, g, tipIdx)
+			} else if g.Phase == game.PhasePlaying && g.Tick <= g.CopilotBlinkUntil {
+				// Copilot blink is active: re-render so the eyes can reopen
+				// once the blink expires.
+				render(screen, g, tipIdx)
 			}
 		case <-tipTicker.C:
 			tipIdx++
@@ -103,15 +107,35 @@ func run(screen tcell.Screen, g *game.Game) {
 // program should exit.
 func handleKey(g *game.Game, ev *tcell.EventKey) bool {
 	a := game.MapKey(ev)
+	// Trigger blink on every keypress regardless of phase.
+	g.CopilotBlinkUntil = g.Tick + 3
 	switch g.Phase {
 	case game.PhaseTitle:
 		if a == game.ActQuit {
 			return true
 		}
+		// Konami-code easter egg: while the player is entering a valid
+		// prefix of ↑↑↓↓←→←→BA we consume the keystroke and stay on the
+		// title screen. Any non-matching key falls through and starts the
+		// run normally (so "press any key to descend" still works for
+		// non-arrow keys). Once the full sequence is entered, KonamiArmed
+		// is latched for the rest of the session and StartRun grants
+		// invincibility.
+		if !g.KonamiArmed && game.KonamiMatchesSlot(g.KonamiProgress, ev) {
+			g.KonamiProgress++
+			if g.KonamiProgress >= game.KonamiLen {
+				g.KonamiArmed = true
+			}
+			return false
+		}
+		g.KonamiProgress = 0
 		g.StartRun()
 	case game.PhasePlaying:
 		if a == game.ActQuit {
 			return true
+		}
+		if g.Floor != nil && g.Floor.Level.Depth == 2 {
+			g.ClippyPresses++
 		}
 		g.Step(a)
 	case game.PhaseHelp:
@@ -124,8 +148,8 @@ func handleKey(g *game.Game, ev *tcell.EventKey) bool {
 			g.StartRun()
 		}
 	case game.PhaseRickRoll:
-		// Any key dismisses and resumes play on the freshly-built next floor.
-		g.Phase = game.PhasePlaying
+		// Any key dismisses the easter egg and shows the victory screen.
+		g.Phase = game.PhaseWon
 	case game.PhaseWon:
 		if a == game.ActQuit {
 			return true
@@ -141,9 +165,18 @@ func render(screen tcell.Screen, g *game.Game, tipIdx int) {
 	switch g.Phase {
 	case game.PhaseTitle:
 		tip := ui.Tips[tipIdx%len(ui.Tips)]
-		ui.RenderTitle(screen, tip, g.Tick)
+		ui.RenderTitle(screen, tip, g.Tick, g.KonamiArmed)
 	case game.PhasePlaying:
 		ui.RenderGame(screen, g.Player, g.Floor, g.Log)
+		levelH := 0
+		if g.Floor != nil {
+			levelH = g.Floor.Level.H
+		}
+		ui.RenderCopilot(screen, g.Tick < g.CopilotBlinkUntil, levelH)
+		if g.Floor != nil && g.Floor.Level.Depth == 2 {
+			ui.RenderClippy(screen, g.ClippyPresses)
+		}
+
 	case game.PhaseHelp:
 		ui.RenderHelp(screen)
 	case game.PhaseDead:
