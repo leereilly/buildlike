@@ -14,6 +14,7 @@ type Phase int
 
 const (
 	PhaseTitle Phase = iota
+	PhaseUsername
 	PhasePlaying
 	PhaseHelp
 	PhaseDead
@@ -21,6 +22,9 @@ const (
 	PhaseRickRoll
 	PhaseQuit
 )
+
+// MaxUsernameLen mirrors GitHub's 39-character cap on usernames.
+const MaxUsernameLen = 39
 
 type Game struct {
 	Screen tcell.Screen
@@ -30,6 +34,12 @@ type Game struct {
 	Log    *ui.MessageLog
 	Phase  Phase
 	Tick   int // global tick counter for animation
+
+	// Username is the GitHub handle the player entered on the opening
+	// PhaseUsername screen. The leading '@' is never stored here; it is
+	// rendered as a prefix in the UI so the player always knows it's
+	// already included.
+	Username string
 
 	// Konami code state. KonamiProgress tracks how many keystrokes of the
 	// classic ↑↑↓↓←→←→BA sequence have been entered on the title screen so
@@ -58,6 +68,58 @@ func New(s tcell.Screen, r *rng.RNG) *Game {
 		Log:    ui.NewLog(200),
 		Phase:  PhaseTitle,
 	}
+}
+
+// AppendUsernameRune appends a single rune to Username if it is a valid
+// GitHub-handle character (alphanumeric or hyphen) and the handle is not at
+// the GitHub-imposed length cap. Returns true on accept, false on reject so
+// the caller can decide whether to redraw.
+func (g *Game) AppendUsernameRune(r rune) bool {
+	if len(g.Username) >= MaxUsernameLen {
+		return false
+	}
+	switch {
+	case r >= 'a' && r <= 'z':
+	case r >= 'A' && r <= 'Z':
+	case r >= '0' && r <= '9':
+	case r == '-':
+		// GitHub disallows a leading hyphen and consecutive hyphens. We
+		// silently reject those here so the on-screen value is always a
+		// shape GitHub itself would accept.
+		if len(g.Username) == 0 {
+			return false
+		}
+		if g.Username[len(g.Username)-1] == '-' {
+			return false
+		}
+	default:
+		return false
+	}
+	g.Username += string(r)
+	return true
+}
+
+// BackspaceUsername removes the last rune of Username. Returns true if a
+// character was removed.
+func (g *Game) BackspaceUsername() bool {
+	if g.Username == "" {
+		return false
+	}
+	// Strip trailing rune (handles ASCII only, which is all we accept).
+	g.Username = g.Username[:len(g.Username)-1]
+	return true
+}
+
+// UsernameReady reports whether the entered Username can be submitted. It
+// must be non-empty and must not end with a hyphen (matching GitHub's rule).
+func (g *Game) UsernameReady() bool {
+	if g.Username == "" {
+		return false
+	}
+	if g.Username[len(g.Username)-1] == '-' {
+		return false
+	}
+	return true
 }
 
 // StartRun (re)initializes the player and generates level 1.

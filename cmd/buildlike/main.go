@@ -87,7 +87,7 @@ func run(screen tcell.Screen, g *game.Game) {
 		case <-ticker.C:
 			g.Tick++
 			// Re-render phases that animate.
-			if g.Phase == game.PhaseTitle || g.Phase == game.PhaseRickRoll {
+			if g.Phase == game.PhaseTitle || g.Phase == game.PhaseRickRoll || g.Phase == game.PhaseUsername {
 				render(screen, g, tipIdx)
 			} else if g.Phase == game.PhasePlaying && g.Tick <= g.CopilotBlinkUntil {
 				// Copilot blink is active: re-render so the eyes can reopen
@@ -116,11 +116,11 @@ func handleKey(g *game.Game, ev *tcell.EventKey) bool {
 		}
 		// Konami-code easter egg: while the player is entering a valid
 		// prefix of ↑↑↓↓←→←→BA we consume the keystroke and stay on the
-		// title screen. Any non-matching key falls through and starts the
-		// run normally (so "press any key to descend" still works for
-		// non-arrow keys). Once the full sequence is entered, KonamiArmed
-		// is latched for the rest of the session and StartRun grants
-		// invincibility.
+		// title screen. Any non-matching key falls through and routes to
+		// the username entry screen (so "press any key to begin" still
+		// works for non-arrow keys). Once the full sequence is entered,
+		// KonamiArmed is latched for the rest of the session and
+		// StartRun grants invincibility.
 		if !g.KonamiArmed && game.KonamiMatchesSlot(g.KonamiProgress, ev) {
 			g.KonamiProgress++
 			if g.KonamiProgress >= game.KonamiLen {
@@ -129,7 +129,30 @@ func handleKey(g *game.Game, ev *tcell.EventKey) bool {
 			return false
 		}
 		g.KonamiProgress = 0
-		g.StartRun()
+		g.Phase = game.PhaseUsername
+	case game.PhaseUsername:
+		// Esc/Ctrl-C exits before the run even starts.
+		if ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyCtrlC {
+			return true
+		}
+		// Backspace deletes the last typed character of the handle. We do
+		// NOT let the user delete the implicit '@' — it's a fixed addon.
+		if ev.Key() == tcell.KeyBackspace || ev.Key() == tcell.KeyBackspace2 {
+			g.BackspaceUsername()
+			return false
+		}
+		// Enter submits and starts the run, but only once we have a
+		// valid handle. Silently no-op otherwise.
+		if ev.Key() == tcell.KeyEnter {
+			if g.UsernameReady() {
+				g.StartRun()
+			}
+			return false
+		}
+		// Any other printable rune is fed through the validator.
+		if r := ev.Rune(); r != 0 {
+			g.AppendUsernameRune(r)
+		}
 	case game.PhasePlaying:
 		if a == game.ActQuit {
 			return true
@@ -163,11 +186,13 @@ func handleKey(g *game.Game, ev *tcell.EventKey) bool {
 
 func render(screen tcell.Screen, g *game.Game, tipIdx int) {
 	switch g.Phase {
+	case game.PhaseUsername:
+		ui.RenderUsername(screen, g.Username, g.Tick, g.UsernameReady())
 	case game.PhaseTitle:
 		tip := ui.Tips[tipIdx%len(ui.Tips)]
 		ui.RenderTitle(screen, tip, g.Tick, g.KonamiArmed)
 	case game.PhasePlaying:
-		ui.RenderGame(screen, g.Player, g.Floor, g.Log)
+		ui.RenderGame(screen, g.Player, g.Floor, g.Log, g.Username)
 		levelH := 0
 		if g.Floor != nil {
 			levelH = g.Floor.Level.H

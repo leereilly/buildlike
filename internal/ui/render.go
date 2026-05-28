@@ -36,9 +36,9 @@ func Clear(s tcell.Screen) {
 }
 
 // RenderGame draws the full playing-state UI: HUD, map, log.
-func RenderGame(s tcell.Screen, p *entity.Player, fs FloorView, log *MessageLog) {
+func RenderGame(s tcell.Screen, p *entity.Player, fs FloorView, log *MessageLog, username string) {
 	Clear(s)
-	drawHUD(s, p, fs.GetLevel())
+	drawHUD(s, p, fs.GetLevel(), username)
 	drawMap(s, p, fs)
 	drawLogTail(s, log, fs.GetLevel().H)
 }
@@ -51,9 +51,11 @@ type FloorView interface {
 	GetPowerups() []*entity.Powerup
 }
 
-func drawHUD(s tcell.Screen, p *entity.Player, l *world.Level) {
-	title := "Buildlike"
-	DrawString(s, 1, 0, title, palette.FG(palette.Yellow).Bold(true))
+func drawHUD(s tcell.Screen, p *entity.Player, l *world.Level, username string) {
+	// Top-left: the floor's "Lv N — L" depth label. The letter cycles
+	// through B-U-I-L-D and is tinted by the level's brand color so the
+	// player sees at a glance which letter of the wordmark they're on.
+	x := 1
 	letter := byte('?')
 	letters := []byte{'B', 'U', 'I', 'L', 'D'}
 	if l.Depth >= 1 && l.Depth <= len(letters) {
@@ -64,7 +66,7 @@ func drawHUD(s tcell.Screen, p *entity.Player, l *world.Level) {
 	if l.Mask != nil {
 		color = palette.Cycle[l.Mask.ColorIx]
 	}
-	DrawString(s, 12, 0, depth, palette.FG(color).Bold(true))
+	DrawString(s, x, 0, depth, palette.FG(color).Bold(true))
 
 	// HP bar
 	const barW = 20
@@ -90,12 +92,34 @@ func drawHUD(s tcell.Screen, p *entity.Player, l *world.Level) {
 	}
 	w, _ := s.Size()
 	label := fmt.Sprintf("HP %2d/%-2d ", p.HP, p.MaxHP)
-	startX := w - barW - len(label) - 2
-	if startX < 25 {
-		startX = 25
+	// Identity badge sits to the LEFT of the HP label: the player's GitHub
+	// handle, rendered with the '@' in brand magenta and the username in
+	// yellow so it matches the in-game '@' avatar glyph. Falls back to the
+	// game title when no username is set (e.g. in tests that bypass
+	// PhaseUsername).
+	identity := "Buildlike"
+	if username != "" {
+		identity = "@" + username
 	}
-	DrawString(s, startX, 0, label, palette.FG(palette.White))
-	bx := startX + len(label)
+	identityW := runeLen(identity)
+	// "<identity> HP NN/MM ████████████████████" right-aligned, with a
+	// single space between the identity and the HP label.
+	startX := w - barW - len(label) - identityW - 1 - 1
+	// Keep the right-hand cluster clear of the depth label. depth uses an
+	// em-dash so we measure in runes, not bytes.
+	minStart := x + runeLen(depth) + 2
+	if startX < minStart {
+		startX = minStart
+	}
+	if username != "" {
+		DrawRune(s, startX, 0, '@', palette.FG(palette.Magenta).Bold(true))
+		DrawString(s, startX+1, 0, username, palette.FG(palette.Yellow).Bold(true))
+	} else {
+		DrawString(s, startX, 0, identity, palette.FG(palette.Yellow).Bold(true))
+	}
+	labelX := startX + identityW + 1
+	DrawString(s, labelX, 0, label, palette.FG(palette.White))
+	bx := labelX + len(label)
 	for i := 0; i < barW; i++ {
 		if i < filled {
 			DrawRune(s, bx+i, 0, '█', palette.FG(hpColor))
