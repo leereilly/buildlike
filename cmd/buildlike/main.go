@@ -126,9 +126,23 @@ func handleKey(g *game.Game, ev *tcell.EventKey) bool {
 			if g.KonamiProgress >= game.KonamiLen {
 				g.KonamiArmed = true
 			}
+			g.ResetTitleDigit()
 			return false
 		}
 		g.KonamiProgress = 0
+		// Triple-tap a digit '1'..'5' on the title screen to warp the
+		// freshly-spawned player straight to that BUILD floor. The digit
+		// presses are silently consumed (the player stays on the title
+		// screen) until a third matching press fires the warp. Any
+		// non-digit key resets the counter and falls through to the normal
+		// "any key starts username entry" path below, so the title hint
+		// still works for SPACE / ENTER / letters.
+		if consumed, depth := g.TitleDigitTap(ev.Rune()); consumed {
+			if depth > 0 {
+				g.StartRunAtDepth(depth)
+			}
+			return false
+		}
 		g.Phase = game.PhaseUsername
 	case game.PhaseUsername:
 		// Esc/Ctrl-C exits before the run even starts.

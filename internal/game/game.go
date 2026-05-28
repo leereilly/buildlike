@@ -63,7 +63,20 @@ type Game struct {
 	// easter egg appears for this run. Rolled in StartRun. 0 means "no
 	// jester yet" (pre-run).
 	JesterDepth int
+
+	// Title triple-tap state. Pressing the same digit '1'..'5' three times
+	// in a row on the title screen warps the player straight to that BUILD
+	// floor. TitleDigit is the digit currently being repeated (0 when no
+	// run is in progress); TitleDigitCount is how many consecutive matching
+	// presses we've seen. A non-matching press resets both. Mirrors the
+	// no-timeout style of the Konami code tracker above.
+	TitleDigit      rune
+	TitleDigitCount int
 }
+
+// TitleTripleTapCount is the number of consecutive identical-digit presses
+// required on the title screen to trigger the level-skip warp.
+const TitleTripleTapCount = 3
 
 func New(s tcell.Screen, r *rng.RNG) *Game {
 	return &Game{
@@ -129,6 +142,21 @@ func (g *Game) UsernameReady() bool {
 
 // StartRun (re)initializes the player and generates level 1.
 func (g *Game) StartRun() {
+	g.StartRunAtDepth(1)
+}
+
+// StartRunAtDepth (re)initializes the player and drops them onto the
+// requested BUILD floor (1..5). Depth is clamped into range. Used by the
+// normal StartRun (depth=1) and by the title-screen triple-tap level-skip
+// easter egg. When depth > 1 a log line announces the warp so the player
+// always sees a confirmation that they landed where they aimed.
+func (g *Game) StartRunAtDepth(depth int) {
+	if depth < 1 {
+		depth = 1
+	}
+	if depth > 5 {
+		depth = 5
+	}
 	g.Player = entity.NewPlayer()
 	if g.KonamiArmed {
 		g.Player.Invincible = true
@@ -136,13 +164,52 @@ func (g *Game) StartRun() {
 	g.ClippyPresses = 0
 	g.CopilotBlinkUntil = 0
 	g.JesterDepth = g.RNG.IntRange(1, 5)
-	g.Floor = BuildFloor(1, g.Player, g.RNG, g.JesterDepth == 1)
+	g.Floor = BuildFloor(depth, g.Player, g.RNG, g.JesterDepth == depth)
 	g.Log = ui.NewLog(200)
 	g.Log.Push("Welcome to Buildlike. Squash bugs, ship the build.", ui.LogInfo)
 	if g.Player.Invincible {
 		g.Log.Push("★ Konami code accepted: you are INVINCIBLE. ★", ui.LogSpecial)
 	}
+	if depth > 1 {
+		letters := []byte{'B', 'U', 'I', 'L', 'D'}
+		g.Log.Push(fmt.Sprintf("Triple-tap warp engaged — touching down on floor %d (%c).", depth, letters[depth-1]), ui.LogSpecial)
+	}
 	g.Phase = PhasePlaying
+}
+
+// TitleDigitTap feeds one keystroke into the title-screen triple-tap
+// detector. If r is a digit '1'..'5', the press is recorded and consumed
+// (returns consumed=true). Three consecutive identical digits returns
+// jumpTo=that depth so the caller can warp. Any non-matching key (different
+// digit or non-digit) resets the counter; a non-digit additionally returns
+// consumed=false so the caller can fall through to its normal
+// "any key transitions to username entry" behaviour.
+func (g *Game) TitleDigitTap(r rune) (consumed bool, jumpTo int) {
+	if r < '1' || r > '5' {
+		g.TitleDigit = 0
+		g.TitleDigitCount = 0
+		return false, 0
+	}
+	if r != g.TitleDigit {
+		g.TitleDigit = r
+		g.TitleDigitCount = 0
+	}
+	g.TitleDigitCount++
+	if g.TitleDigitCount >= TitleTripleTapCount {
+		depth := int(r - '0')
+		g.TitleDigit = 0
+		g.TitleDigitCount = 0
+		return true, depth
+	}
+	return true, 0
+}
+
+// ResetTitleDigit clears the title-screen triple-tap counter. Called when
+// the player engages an unrelated title-screen interaction (e.g. advancing
+// the Konami code) so partial digit progress can't be carried across.
+func (g *Game) ResetTitleDigit() {
+	g.TitleDigit = 0
+	g.TitleDigitCount = 0
 }
 
 // Step applies one player action and resolves the world's response.
