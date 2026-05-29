@@ -47,7 +47,7 @@ var tombstone = []string{
 	"       /       \\      ",
 	"      /  R.I.P. \\     ",
 	"     /           \\    ",
-	"     |   @       |    ",
+	"     |      @     |    ",
 	"     |  here lies |    ",
 	"     |  a builder |    ",
 	"     |            |    ",
@@ -68,15 +68,15 @@ func RenderDeath(s tcell.Screen, depth, maxHP int) {
 	msg2 := ""
 	switch depth {
 	case 1:
-		msg2 = "You fell on B. Bugs 1 - You 0."
+		msg2 = "You are dead."
 	case 2:
 		msg2 = "You couldn't U-turn fast enough."
 	case 3:
-		msg2 = "I before E... and bugs before everything."
+		msg2 = "Bettr luck next time."
 	case 4:
 		msg2 = "L-shaped corridor, L-shaped result."
 	case 5:
-		msg2 = "So close to shipping. The D was for done."
+		msg2 = "So close, yet so far."
 	}
 	prompt := "Press r to restart, q to quit."
 	DrawString(s, (w-len(msg1))/2, startY+len(tombstone)+1, msg1, palette.FG(palette.Red).Bold(true))
