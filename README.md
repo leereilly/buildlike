@@ -4,7 +4,13 @@ A tiny terminal roguelike themed on Microsoft Build. Squash bugs (`b`), grab gre
 
 Survive to the end and `buildlike` will render a Build-themed contribution graph for your GitHub handle, but you have to earn it. Throw it on your README profile, your LinkedIn header, or print it and stink it on your (work) fridge.
 
-![contribution graph](contribution-graph.svg)
+You'll get a GIF
+
+![contribution graph gif](contribution-graph.gif)
+
+And an SVG
+
+![contribution graph svg](contribution-graph.svg)
 
 ## Build and play
 
