@@ -6,11 +6,11 @@ Survive to the end and `buildlike` will render a Build-themed contribution graph
 
 You'll get a GIF
 
-![contribution graph gif](contribution-graph.gif)
+<img src="contribution-graph.gif" width="100%" alt="Build-themed GitHub contribution graph GIF">
 
 And an SVG
 
-![contribution graph svg](contribution-graph.svg)
+<img src="contribution-graph.svg" width="100%" alt="Build-themed GitHub contribution graph SVG">
 
 ## Build and play
 
