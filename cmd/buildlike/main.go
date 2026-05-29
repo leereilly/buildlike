@@ -22,7 +22,7 @@ import (
 func main() {
 	seed := flag.Int64("seed", 0, "RNG seed (0 = time-based)")
 	noColor := flag.Bool("no-color", false, "disable colors for monochrome terminals")
-	user := flag.String("user", "", "GitHub handle: render its Build-themed contribution graph SVG and exit (skips the game)")
+	user := flag.String("user", "", "GitHub handle: render its Build-themed contribution graph (SVG + GIF) and exit (skips the game)")
 	flag.Parse()
 
 	palette.NoColor = *noColor
@@ -262,7 +262,7 @@ func render(screen tcell.Screen, g *game.Game, tipIdx int) {
 }
 
 // generateContribGraph fetches handle's GitHub contribution data and writes
-// the Build-themed SVG to contribgraph.DefaultOutputPath in the current
+// the Build-themed SVG (plus a matching animated GIF) to the current
 // working directory. It runs without ever touching tcell so the caller can
 // use --user from a non-interactive shell (CI, docs builds, etc.).
 func generateContribGraph(handle string) error {
@@ -272,6 +272,7 @@ func generateContribGraph(handle string) error {
 	if _, err := contribgraph.Generate(ctx, nil, handle, out); err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stdout, "Wrote @%s's Build-themed contribution graph to %s\n", handle, out)
+	gifOut := strings.TrimSuffix(out, ".svg") + ".gif"
+	fmt.Fprintf(os.Stdout, "Wrote @%s's Build-themed contribution graph to %s and %s\n", handle, out, gifOut)
 	return nil
 }

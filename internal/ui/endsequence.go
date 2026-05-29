@@ -175,9 +175,10 @@ type EndSequenceState struct {
 	Username string
 
 	// GraphPath is where the Build-themed contribution graph SVG will be
-	// written when the success branch reaches the spinner stage. Defaults
-	// to contribgraph.DefaultOutputPath (i.e. "contribution-graph.svg" in
-	// the current working directory).
+	// written when the success branch reaches the spinner stage. The
+	// matching animated GIF is written alongside with the .svg extension
+	// swapped for .gif. Defaults to contribgraph.DefaultOutputPath (i.e.
+	// "contribution-graph.svg" in the current working directory).
 	GraphPath string
 
 	// status is the EndStatus value, accessed atomically because the
@@ -203,7 +204,8 @@ var endStatusClient func(ctx context.Context, username string) EndStatus
 // endContribGenerator is the contribution-graph generator hook. Tests
 // override this to avoid the network and to assert on the call. Production
 // callers leave it nil and we fall through to contribgraph.Generate, which
-// fetches https://github.com/<user>.contribs and writes the SVG.
+// fetches https://github.com/<user>.contribs and writes both the SVG and
+// the matching animated GIF.
 var endContribGenerator func(ctx context.Context, username, outPath string) error
 
 // MaybeStartContribGraph kicks off the one-shot Build-themed contribution

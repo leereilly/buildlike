@@ -260,8 +260,15 @@ func Generate(ctx context.Context, client *http.Client, username, outPath string
 }
 
 // GenerateFromData renders an already-fetched Data payload for username
-// and writes the SVG to outPath (or DefaultOutputPath when empty). Useful
-// in tests where we want to avoid the network entirely.
+// and writes BOTH the Build-themed SVG and a matching animated GIF. The
+// SVG is written to outPath (or DefaultOutputPath when empty) and the
+// GIF is written to the same path with the extension swapped from .svg
+// to .gif (any other extension is preserved and .gif is appended).
+// Useful in tests where we want to avoid the network entirely.
+//
+// Returns the SVG bytes alongside any error. If the SVG write succeeds
+// but the GIF render or write fails, the SVG is still left on disk and
+// the GIF-related error is returned.
 func GenerateFromData(data *Data, username, outPath string) ([]byte, error) {
 	if outPath == "" {
 		outPath = DefaultOutputPath
@@ -270,5 +277,23 @@ func GenerateFromData(data *Data, username, outPath string) ([]byte, error) {
 	if err := os.WriteFile(outPath, svg, 0o644); err != nil {
 		return nil, fmt.Errorf("contribgraph: write %s: %w", outPath, err)
 	}
+	gifBytes, err := RenderGIF(data, username, nil)
+	if err != nil {
+		return svg, err
+	}
+	gifPath := gifPathFor(outPath)
+	if err := os.WriteFile(gifPath, gifBytes, 0o644); err != nil {
+		return svg, fmt.Errorf("contribgraph: write %s: %w", gifPath, err)
+	}
 	return svg, nil
+}
+
+// gifPathFor derives the GIF output path that pairs with an SVG output
+// path. A `.svg` (case-insensitive) suffix is swapped for `.gif`;
+// anything else gets `.gif` appended.
+func gifPathFor(svgPath string) string {
+	if len(svgPath) >= 4 && strings.EqualFold(svgPath[len(svgPath)-4:], ".svg") {
+		return svgPath[:len(svgPath)-4] + ".gif"
+	}
+	return svgPath + ".gif"
 }
