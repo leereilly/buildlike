@@ -47,20 +47,49 @@ def parse_svg(path: Path):
         raise SystemExit("missing viewBox in svg")
     width, height = int(vb.group(1)), int(vb.group(2))
     cells = []
+    empties = []
     for m in RECT_RE.finditer(text):
-        cells.append(
-            {
-                "x": int(m.group("x")),
-                "y": int(m.group("y")),
-                "w": int(m.group("w")),
-                "h": int(m.group("h")),
-                "rx": int(m.group("rx")),
-                "fill": hex_to_rgb(m.group("fill")),
-            }
-        )
+        rgb = hex_to_rgb(m.group("fill"))
+        entry = {
+            "x": int(m.group("x")),
+            "y": int(m.group("y")),
+            "w": int(m.group("w")),
+            "h": int(m.group("h")),
+            "rx": int(m.group("rx")),
+            "fill": rgb,
+        }
+        # Treat the standard GitHub empty-cell grey as a static background tile;
+        # everything else is a "contribution" that should sparkle.
+        if rgb == EMPTY_FILL:
+            empties.append(entry)
+        else:
+            cells.append(entry)
     if not cells:
-        raise SystemExit("no <rect> cells parsed from svg")
-    return width, height, cells
+        raise SystemExit("no contribution cells parsed from svg")
+    return width, height, cells, empties
+
+
+def fill_empty_grid(width: int, height: int, cells, existing_empties) -> list[dict]:
+    """If the SVG omits empty cells, synthesize them on the standard grid."""
+    if existing_empties:
+        return existing_empties
+    if not cells:
+        return []
+    cw = cells[0]["w"]
+    ch = cells[0]["h"]
+    rx = cells[0]["rx"]
+    cols = (width + (CELL_PITCH - cw)) // CELL_PITCH
+    rows = (height + (CELL_PITCH - ch)) // CELL_PITCH
+    occupied = {(c["x"], c["y"]) for c in cells}
+    out = []
+    for r in range(rows):
+        for c in range(cols):
+            x = c * CELL_PITCH
+            y = r * CELL_PITCH
+            if (x, y) in occupied:
+                continue
+            out.append({"x": x, "y": y, "w": cw, "h": ch, "rx": rx, "fill": EMPTY_FILL})
+    return out
 
 
 def sorted_palette(cells) -> list[tuple[int, int, int]]:
@@ -87,24 +116,8 @@ def lerp_rgb(c1, c2, t):
 
 
 def empty_grid_cells(width: int, height: int, cells) -> list[dict]:
-    """Return cells for every grid slot not covered by an SVG rect."""
-    if not cells:
-        return []
-    cw = cells[0]["w"]
-    ch = cells[0]["h"]
-    rx = cells[0]["rx"]
-    cols = (width + (CELL_PITCH - cw)) // CELL_PITCH
-    rows = (height + (CELL_PITCH - ch)) // CELL_PITCH
-    occupied = {(c["x"], c["y"]) for c in cells}
-    out = []
-    for r in range(rows):
-        for c in range(cols):
-            x = c * CELL_PITCH
-            y = r * CELL_PITCH
-            if (x, y) in occupied:
-                continue
-            out.append({"x": x, "y": y, "w": cw, "h": ch, "rx": rx, "fill": EMPTY_FILL})
-    return out
+    """Backwards-compatible wrapper kept for clarity in callers/tests."""
+    return fill_empty_grid(width, height, cells, [])
 
 
 def render_frame(
@@ -113,10 +126,13 @@ def render_frame(
     empties,
     palette: list[tuple[int, int, int]],
     phases: list[float],
-    speeds: list[float],
-    sparkle_phase: list[float],
-    sparkle_rate: list[float],
+    drift_k: list[int],
+    drift_amp: list[float],
+    drift_offset: list[float],
+    sparkle_k: list[int],
+    sparkle_offset: list[float],
     t: float,
+    total_frames: int,
     scale: int,
 ) -> Image.Image:
     w, h = size
@@ -135,16 +151,19 @@ def render_frame(
         )
 
     n = len(palette)
-    for cell, phase, speed, s_phase, s_rate in zip(
-        cells, phases, speeds, sparkle_phase, sparkle_rate
+    omega = 2 * math.pi / total_frames
+    for cell, phase, dk, damp, doff, sk, soff in zip(
+        cells, phases, drift_k, drift_amp, drift_offset, sparkle_k, sparkle_offset
     ):
-        pos = (phase + speed * t) % n
+        # Sine-based palette oscillation with integer per-cell frequency: every
+        # cell completes a whole number of cycles per loop, so frame N == frame 0.
+        pos = phase + damp * math.sin(dk * omega * t + doff)
         i = int(math.floor(pos))
         frac = pos - i
-        base = lerp_rgb(palette[i], palette[(i + 1) % n], frac)
+        base = lerp_rgb(palette[i % n], palette[(i + 1) % n], frac)
 
-        # Occasional brightness sparkle: a soft sine that briefly lifts toward white.
-        sparkle = max(0.0, math.sin(2 * math.pi * s_rate * t + s_phase))
+        # White-twinkle sparkle, also at an integer per-cell frequency.
+        sparkle = max(0.0, math.sin(sk * omega * t + soff))
         sparkle = sparkle**6  # narrow the peaks → twinkly, not pulsing
         r, g, b = base
         r = int(round(lerp(r, 255, 0.55 * sparkle)))
@@ -161,13 +180,27 @@ def render_frame(
     return img
 
 
-def rgba_to_indexed(im: Image.Image) -> Image.Image:
-    """Convert RGBA frame to a P-mode image with a reserved transparency index."""
+def build_master_palette(frames: list[Image.Image]) -> Image.Image:
+    """Quantize all frames together to derive one shared palette.
+
+    Stacking frames and quantising the result once ensures every frame maps the
+    same RGB to the same palette index — so static regions (like the empty grey
+    cells) don't shimmer from per-frame quantisation drift.
+    """
+    if not frames:
+        raise SystemExit("no frames to build palette from")
+    w, h = frames[0].size
+    stack = Image.new("RGB", (w, h * len(frames)))
+    for i, f in enumerate(frames):
+        stack.paste(f.convert("RGB"), (0, i * h))
+    return stack.quantize(colors=TRANSPARENT_INDEX, method=Image.Quantize.FASTOCTREE)
+
+
+def rgba_to_indexed(im: Image.Image, master: Image.Image) -> Image.Image:
+    """Convert RGBA frame to a P-mode image using the shared master palette."""
     alpha = im.getchannel("A")
     rgb = im.convert("RGB")
-    indexed = rgb.quantize(
-        colors=TRANSPARENT_INDEX, method=Image.Quantize.FASTOCTREE
-    )
+    indexed = rgb.quantize(palette=master, dither=Image.Dither.NONE)
     transparency_mask = Image.eval(alpha, lambda a: 255 if a < 128 else 0)
     indexed.paste(TRANSPARENT_INDEX, mask=transparency_mask)
     return indexed
@@ -182,25 +215,33 @@ def main():
     ap.add_argument("--seed", type=int, default=0xB011D)
     args = ap.parse_args()
 
-    width, height, cells = parse_svg(SVG_PATH)
+    width, height, cells, parsed_empties = parse_svg(SVG_PATH)
     palette = sorted_palette(cells)
     n = len(palette)
-    empties = empty_grid_cells(width, height, cells)
+    empties = fill_empty_grid(width, height, cells, parsed_empties)
 
     rng = random.Random(args.seed)
 
+    # All per-cell oscillators use integer frequencies (cycles per loop) so the
+    # last frame transitions cleanly back into the first. Drift offset starts at
+    # 0 or π so sin() is exactly 0 at t=0 → frame 0 matches the static SVG.
+    DRIFT_KS = [1, 1, 1, 2, 2, 3]
+    SPARKLE_KS = [2, 3, 3, 4, 5, 5, 7]
     phases: list[float] = []
-    speeds: list[float] = []
-    sparkle_phase: list[float] = []
-    sparkle_rate: list[float] = []
+    drift_k: list[int] = []
+    drift_amp: list[float] = []
+    drift_offset: list[float] = []
+    sparkle_k: list[int] = []
+    sparkle_offset: list[float] = []
     for cell in cells:
         phases.append(float(palette.index(cell["fill"])))
-        # Per-cell drift speed in palette-steps per frame: low enough to feel
-        # gentle, varied enough that the field shimmers instead of marching.
-        speeds.append(rng.uniform(0.04, 0.18))
-        sparkle_phase.append(rng.uniform(0, 2 * math.pi))
-        # Sparkle frequency in cycles per frame: keeps twinkles desynchronised.
-        sparkle_rate.append(rng.uniform(0.01, 0.05))
+        drift_k.append(rng.choice(DRIFT_KS))
+        # Wide amplitude → cells sweep across multiple distinct hues (red →
+        # orange → yellow → green → …) instead of just shading their own hue.
+        drift_amp.append(rng.uniform(4.0, 8.0))
+        drift_offset.append(rng.choice([0.0, math.pi]))
+        sparkle_k.append(rng.choice(SPARKLE_KS))
+        sparkle_offset.append(rng.choice([0.0, math.pi]))
 
     frames: list[Image.Image] = []
     for t in range(args.frames):
@@ -211,15 +252,19 @@ def main():
                 empties,
                 palette,
                 phases,
-                speeds,
-                sparkle_phase,
-                sparkle_rate,
+                drift_k,
+                drift_amp,
+                drift_offset,
+                sparkle_k,
+                sparkle_offset,
                 float(t),
+                args.frames,
                 args.scale,
             )
         )
 
-    quantised = [rgba_to_indexed(f) for f in frames]
+    master = build_master_palette(frames)
+    quantised = [rgba_to_indexed(f, master) for f in frames]
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -240,8 +285,10 @@ def main():
 
     gifsicle = shutil.which("gifsicle")
     if gifsicle:
+        # No --lossy: lossy mode introduces per-pixel noise that would make the
+        # static empty cells shimmer between frames.
         subprocess.run(
-            [gifsicle, "-O3", "--lossy=60", "--colors", "128", str(out), "-o", str(out)],
+            [gifsicle, "-O3", str(out), "-o", str(out)],
             check=True,
         )
         print(f"optimised with gifsicle → {out.stat().st_size // 1024} KiB")
