@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -51,10 +52,31 @@ const (
 	endStatusTimeout = 35 // tolerated wait (in scene ticks) for the probe
 )
 
+// endPromptPrefix is the shell prompt printed before each typed command.
+// On macOS/Linux it's the familiar POSIX "$ "; on Windows we mimic a
+// PowerShell prompt instead so the finale reads as native to whichever OS
+// the player is actually on. Both variants include the trailing space.
+var endPromptPrefix = endPromptPrefixFor(runtime.GOOS)
+
+func endPromptPrefixFor(goos string) string {
+	if goos == "windows" {
+		return "PS> "
+	}
+	return "$ "
+}
+
 // endCdText is the deliberately-Ballmer prompt the player watches the game
 // type at the post-level-5 shell. It dovetails with the rickroll's "developers,
-// developers, developers..." subtitle.
-const endCdText = "cd developers/developers/developers"
+// developers, developers..." subtitle. On Windows we swap to backslash path
+// separators so the line looks at home in PowerShell.
+var endCdText = endCdTextFor(runtime.GOOS)
+
+func endCdTextFor(goos string) string {
+	if goos == "windows" {
+		return `cd developers\developers\developers`
+	}
+	return "cd developers/developers/developers"
+}
 
 // endCdSchedule[i] is the scene-relative tick at which character i of
 // endCdText becomes visible. Generated once with a fixed seed so the typing
@@ -109,11 +131,21 @@ func endCdTotalTicks() int {
 }
 
 // endBuildText is the build command typed on the next line. The spinner
-// output below it pretends to be `build`'s log output.
-const endBuildText = "build"
+// output below it pretends to be `build`'s log output. On Windows we use
+// the PowerShell-canonical ".\build.exe" form so it looks like a real
+// invocation of a local binary rather than a missing PATH lookup.
+var endBuildText = endBuildTextFor(runtime.GOOS)
+
+func endBuildTextFor(goos string) string {
+	if goos == "windows" {
+		return `.\build.exe`
+	}
+	return "build"
+}
 
 // endGitText is the cherry on top: the player watches the game type out
-// git status before the rick roll kicks in.
+// git status before the rick roll kicks in. The command is the same on
+// both POSIX and PowerShell, so it doesn't need an OS-conditional form.
 const endGitText = "git status"
 
 // endSpinnerMessages is the build-output the spinners walk through when we
@@ -423,8 +455,9 @@ func RenderEndSequence(s tcell.Screen, es *EndSequenceState, tick int) {
 		topY = 1
 	}
 	x := leftMargin
-	if x+runeLen(endCdText)+4 > w {
-		x = max0(w - runeLen(endCdText) - 4)
+	promptW := runeLen(endPromptPrefix)
+	if x+promptW+runeLen(endCdText)+2 > w {
+		x = max0(w - promptW - runeLen(endCdText) - 2)
 	}
 
 	cdStart := endFlashTicks + endPostFlash
@@ -488,7 +521,8 @@ func drawTypedPrompt(s tcell.Screen, x, y int, text string, rel, tick int, blink
 	if rel < 0 {
 		return
 	}
-	DrawString(s, x, y, "$ ", palette.FG(palette.Green).Bold(true))
+	DrawString(s, x, y, endPromptPrefix, palette.FG(palette.Green).Bold(true))
+	promptW := runeLen(endPromptPrefix)
 	var shown int
 	if schedule != nil {
 		// sort.SearchInts(schedule, rel+1) returns the smallest i with
@@ -501,9 +535,9 @@ func drawTypedPrompt(s tcell.Screen, x, y int, text string, rel, tick int, blink
 	if shown > len(text) {
 		shown = len(text)
 	}
-	DrawString(s, x+2, y, text[:shown], palette.FG(palette.White).Bold(true))
+	DrawString(s, x+promptW, y, text[:shown], palette.FG(palette.White).Bold(true))
 	if blinkCaret && shown < len(text) && (tick/3)%2 == 0 {
-		DrawRune(s, x+2+shown, y, '▌', palette.FG(palette.Yellow))
+		DrawRune(s, x+promptW+shown, y, '▌', palette.FG(palette.Yellow))
 	}
 }
 

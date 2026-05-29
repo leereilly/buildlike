@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -332,7 +333,94 @@ func TestContribGraphSkippedWhenNoUsername(t *testing.T) {
 	}
 }
 
-// TestEndCdScheduleIsFasterAndJittery proves two properties of the jittery
+// TestEndPromptPrefixIsOSAware verifies the prompt prefix that gates the
+// typed shell lines flips between the POSIX "$ " and a PowerShell-flavored
+// "PS> " depending on which OS we're rendering for. The helper is pure so
+// we can exercise both branches from any host platform.
+func TestEndPromptPrefixIsOSAware(t *testing.T) {
+	cases := []struct {
+		goos string
+		want string
+	}{
+		{"darwin", "$ "},
+		{"linux", "$ "},
+		{"freebsd", "$ "},
+		{"openbsd", "$ "},
+		{"windows", "PS> "},
+	}
+	for _, tc := range cases {
+		t.Run(tc.goos, func(t *testing.T) {
+			if got := endPromptPrefixFor(tc.goos); got != tc.want {
+				t.Errorf("endPromptPrefixFor(%q) = %q, want %q", tc.goos, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestEndCdTextIsOSAware confirms the `cd` line uses forward slashes on
+// POSIX and backslashes on Windows. Length parity is also checked because
+// the jittery typing schedule is keyed off len(endCdText) and a mismatch
+// would silently desync the per-character reveal cadence on Windows.
+func TestEndCdTextIsOSAware(t *testing.T) {
+	posix := endCdTextFor("linux")
+	win := endCdTextFor("windows")
+	if posix != "cd developers/developers/developers" {
+		t.Errorf("posix cd line = %q, want forward-slash form", posix)
+	}
+	if win != `cd developers\developers\developers` {
+		t.Errorf("windows cd line = %q, want backslash form", win)
+	}
+	if len(posix) != len(win) {
+		t.Errorf("posix/windows cd lines must be same length so the typing schedule stays in sync; got %d vs %d", len(posix), len(win))
+	}
+	// Windows form must not contain forward slashes (and vice-versa) —
+	// the whole point of the swap is to look native in each shell.
+	if strings.ContainsRune(win, '/') {
+		t.Errorf("windows cd line %q must not contain forward slashes", win)
+	}
+	if strings.ContainsRune(posix, '\\') {
+		t.Errorf("posix cd line %q must not contain backslashes", posix)
+	}
+}
+
+// TestEndBuildTextIsOSAware confirms that the typed build invocation is
+// the bare "build" on POSIX (relies on PATH / current shell semantics) and
+// ".\build.exe" on Windows (PowerShell refuses to run a current-directory
+// binary without the ".\" prefix, and the .exe extension is canonical).
+func TestEndBuildTextIsOSAware(t *testing.T) {
+	if got := endBuildTextFor("linux"); got != "build" {
+		t.Errorf("posix build line = %q, want \"build\"", got)
+	}
+	if got := endBuildTextFor("darwin"); got != "build" {
+		t.Errorf("darwin build line = %q, want \"build\"", got)
+	}
+	win := endBuildTextFor("windows")
+	if want := `.\build.exe`; win != want {
+		t.Errorf("windows build line = %q, want %q", win, want)
+	}
+	if !strings.HasSuffix(win, ".exe") {
+		t.Errorf("windows build line %q must end in .exe", win)
+	}
+	if !strings.HasPrefix(win, `.\`) {
+		t.Errorf("windows build line %q must start with .\\ so PowerShell will execute it", win)
+	}
+}
+
+// TestEndSequenceLiveValuesMatchRuntime makes sure the package-level
+// endPromptPrefix / endCdText / endBuildText values agree with the
+// OS-aware helpers for the current GOOS. This catches accidental future
+// hard-codings of the POSIX form in the live globals.
+func TestEndSequenceLiveValuesMatchRuntime(t *testing.T) {
+	if got, want := endPromptPrefix, endPromptPrefixFor(runtime.GOOS); got != want {
+		t.Errorf("endPromptPrefix = %q, want %q for GOOS=%s", got, want, runtime.GOOS)
+	}
+	if got, want := endCdText, endCdTextFor(runtime.GOOS); got != want {
+		t.Errorf("endCdText = %q, want %q for GOOS=%s", got, want, runtime.GOOS)
+	}
+	if got, want := endBuildText, endBuildTextFor(runtime.GOOS); got != want {
+		t.Errorf("endBuildText = %q, want %q for GOOS=%s", got, want, runtime.GOOS)
+	}
+}
 // per-character typing schedule for `cd developers/developers/developers`:
 //  1. It is meaningfully faster than the old uniform pace would have been
 //     (otherwise we haven't actually sped anything up).
