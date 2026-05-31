@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/leereilly/buildlike/internal/game"
-	"github.com/leereilly/buildlike/internal/rng"
+	"github.com/leereilly/commit-crawl/internal/game"
+	"github.com/leereilly/commit-crawl/internal/rng"
 )
 
 func newTestGame(t *testing.T) *game.Game {

@@ -4,10 +4,10 @@ import (
 	"testing"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/leereilly/buildlike/internal/game"
-	"github.com/leereilly/buildlike/internal/rng"
-	"github.com/leereilly/buildlike/internal/ui"
-	"github.com/leereilly/buildlike/internal/world"
+	"github.com/leereilly/commit-crawl/internal/game"
+	"github.com/leereilly/commit-crawl/internal/rng"
+	"github.com/leereilly/commit-crawl/internal/ui"
+	"github.com/leereilly/commit-crawl/internal/world"
 )
 
 // TestAscendTriggersTeleport walks every dungeon (B → U → I → L → D) by

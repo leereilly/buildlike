@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/leereilly/buildlike/internal/contribgraph"
-	"github.com/leereilly/buildlike/internal/ui/palette"
+	"github.com/leereilly/commit-crawl/internal/contribgraph"
+	"github.com/leereilly/commit-crawl/internal/ui/palette"
 )
 
 // EndStatus is the outcome of the post-level-5 network probes. The probes run
@@ -154,7 +154,7 @@ const endGitText = "git status"
 var endSpinnerMessages = []string{
 	"Analyzing all available data...",
 	"Chomping at the bits...",
-	"Generating your special Build contribution graph",
+	"Generating your special Build GitHub contribution graph",
 }
 
 // endSpinnerFrames cycles for the in-progress spinner glyph; matches the

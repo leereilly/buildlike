@@ -1,6 +1,6 @@
 package entity
 
-import "github.com/leereilly/buildlike/internal/world"
+import "github.com/leereilly/commit-crawl/internal/world"
 
 type Player struct {
 	Pos        world.Point

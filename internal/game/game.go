@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/leereilly/buildlike/internal/entity"
-	"github.com/leereilly/buildlike/internal/rng"
-	"github.com/leereilly/buildlike/internal/ui"
-	"github.com/leereilly/buildlike/internal/world"
+	"github.com/leereilly/commit-crawl/internal/entity"
+	"github.com/leereilly/commit-crawl/internal/rng"
+	"github.com/leereilly/commit-crawl/internal/ui"
+	"github.com/leereilly/commit-crawl/internal/world"
 )
 
 type Phase int
@@ -15,6 +15,7 @@ type Phase int
 const (
 	PhaseTitle Phase = iota
 	PhaseUsername
+	PhaseIntro
 	PhasePlaying
 	PhaseHelp
 	PhaseDead
@@ -78,6 +79,12 @@ type Game struct {
 	// shell commands, the spinner animation, and the latched result of
 	// the background network probe. Non-nil only during PhaseEndSequence.
 	EndSeq *ui.EndSequenceState
+
+	// Intro holds the live state of the post-username PhaseIntro
+	// transition that clears the screen down to a single '@' and then
+	// blooms the first floor into view while sliding the avatar into the
+	// spawn cell. Non-nil only during PhaseIntro.
+	Intro *ui.IntroState
 }
 
 // TitleTripleTapCount is the number of consecutive identical-digit presses
@@ -146,6 +153,59 @@ func (g *Game) UsernameReady() bool {
 	return true
 }
 
+// BeginIntro spawns the first floor and starts the PhaseIntro transition
+// that bridges PhaseUsername and PhasePlaying. The avatar will glide from
+// (srcX, srcY) — the screen cell of the magenta '@' on the username form —
+// into the floor's spawn point while the level blooms into view. Use
+// ui.UsernameAtPos to compute (srcX, srcY) so it stays in sync with the
+// PhaseUsername layout.
+//
+// The Floor/Player/Log are fully initialised here so RenderIntro can paint
+// the same map cells that PhasePlaying will paint a moment later — only the
+// player avatar's screen position is animated.
+func (g *Game) BeginIntro(srcX, srcY int) {
+	g.Player = entity.NewPlayer()
+	if g.KonamiArmed {
+		g.Player.Invincible = true
+	}
+	g.ClippyPresses = 0
+	g.CopilotBlinkUntil = 0
+	g.JesterDepth = g.RNG.IntRange(1, 5)
+	g.Floor = BuildFloor(1, g.Player, g.RNG, g.JesterDepth == 1)
+	g.Log = ui.NewLog(200)
+	g.Log.Push("Welcome to Commit Crawl. Squash bugs and ship it!", ui.LogInfo)
+	if g.Player.Invincible {
+		g.Log.Push("★ Konami code accepted: you are INVINCIBLE. ★", ui.LogSpecial)
+	}
+	g.Intro = &ui.IntroState{SrcX: srcX, SrcY: srcY, StartTick: g.Tick}
+	g.Phase = PhaseIntro
+}
+
+// AdvanceIntro is called once per tick while PhaseIntro is active. When the
+// intro's pure-function timeline has played out it tears down the Intro
+// state and transitions to PhasePlaying. Calling this in any other phase is
+// a no-op so the main loop can dispatch it unconditionally.
+func (g *Game) AdvanceIntro() {
+	if g.Phase != PhaseIntro {
+		return
+	}
+	if ui.IntroDone(g.Intro, g.Tick) {
+		g.Intro = nil
+		g.Phase = PhasePlaying
+	}
+}
+
+// SkipIntro short-circuits the PhaseIntro animation and drops the player
+// straight into PhasePlaying. Triggered by any key press during the intro
+// so impatient players are never held hostage by the bloom timing.
+func (g *Game) SkipIntro() {
+	if g.Phase != PhaseIntro {
+		return
+	}
+	g.Intro = nil
+	g.Phase = PhasePlaying
+}
+
 // StartRun (re)initializes the player and generates level 1.
 func (g *Game) StartRun() {
 	g.StartRunAtDepth(1)
@@ -172,7 +232,7 @@ func (g *Game) StartRunAtDepth(depth int) {
 	g.JesterDepth = g.RNG.IntRange(1, 5)
 	g.Floor = BuildFloor(depth, g.Player, g.RNG, g.JesterDepth == depth)
 	g.Log = ui.NewLog(200)
-	g.Log.Push("Welcome to Buildlike. Squash bugs, ship the build.", ui.LogInfo)
+	g.Log.Push("Welcome to Commit Crawl. Squash bugs, ship the build.", ui.LogInfo)
 	if g.Player.Invincible {
 		g.Log.Push("★ Konami code accepted: you are INVINCIBLE. ★", ui.LogSpecial)
 	}
@@ -270,7 +330,7 @@ func (g *Game) tryMove(dx, dy int) {
 	// Jester at dest? Bump-attack (Falconhoof easter egg).
 	if j := g.Floor.Jester; j != nil && j.Alive && j.Pos == dest {
 		j.Alive = false
-		g.Log.Push(`"Kill jester" </falconhoof>`, ui.LogSpecial)
+		g.Log.Push(`"Kill jester", you mutter.`, ui.LogSpecial)
 		return
 	}
 	if !g.Floor.Level.Walkable(dest) {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/leereilly/buildlike/internal/rng"
-	"github.com/leereilly/buildlike/internal/world"
+	"github.com/leereilly/commit-crawl/internal/rng"
+	"github.com/leereilly/commit-crawl/internal/world"
 )
 
 // TestSpawnTopLeft confirms that the spawn point picked by Generate is the

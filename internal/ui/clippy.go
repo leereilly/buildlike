@@ -2,7 +2,7 @@ package ui
 
 import (
 	"github.com/gdamore/tcell/v2"
-	"github.com/leereilly/buildlike/internal/ui/palette"
+	"github.com/leereilly/commit-crawl/internal/ui/palette"
 )
 
 // Clippy is an easter-egg helper that pops up in the bottom-right corner on

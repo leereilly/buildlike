@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/leereilly/buildlike/internal/entity"
-	"github.com/leereilly/buildlike/internal/ui/palette"
-	"github.com/leereilly/buildlike/internal/world"
+	"github.com/leereilly/commit-crawl/internal/entity"
+	"github.com/leereilly/commit-crawl/internal/ui/palette"
+	"github.com/leereilly/commit-crawl/internal/world"
 )
 
 // DrawRune writes a single styled rune at (x, y).
@@ -98,7 +98,7 @@ func drawHUD(s tcell.Screen, p *entity.Player, l *world.Level, username string) 
 	// yellow so it matches the in-game '@' avatar glyph. Falls back to the
 	// game title when no username is set (e.g. in tests that bypass
 	// PhaseUsername).
-	identity := "Buildlike"
+	identity := "Commit Crawl"
 	if username != "" {
 		identity = "@" + username
 	}
@@ -141,36 +141,7 @@ func drawMap(s tcell.Screen, p *entity.Player, fs FloorView) {
 	const offsetY = 1
 	for y := 0; y < l.H; y++ {
 		for x := 0; x < l.W; x++ {
-			t := l.Tiles[y][x]
-			r := t.Glyph()
-			var st tcell.Style
-			switch t {
-			case world.TileWall, world.TileSecretDoor:
-				// Tint mask-perimeter walls in the floor's letter color so the
-				// silhouette of the letter pops.
-				st = palette.FG(palette.Blue)
-				if l.Mask != nil {
-					p := world.Point{X: x, Y: y}
-					if isLetterOutline(l, p) {
-						st = palette.FG(palette.Cycle[l.Mask.ColorIx]).Bold(true)
-					}
-				}
-			case world.TileFloor:
-				// Vault coloring?
-				if idx, ok := l.VaultColors[world.Point{X: x, Y: y}]; ok && idx >= 0 && idx < len(palette.Cycle) {
-					// Render a colored floor pixel as a solid block.
-					DrawRune(s, x, y+offsetY, '█', palette.FG(palette.Cycle[idx]))
-					continue
-				}
-				st = palette.FG(palette.DimGray)
-			case world.TileStairs:
-				st = palette.FG(palette.Orange).Bold(true)
-			case world.TilePlate:
-				st = palette.FG(palette.Magenta).Bold(true)
-			default:
-				st = palette.FG(palette.DimGray)
-			}
-			DrawRune(s, x, y+offsetY, r, st)
+			drawTile(s, l, x, y, offsetY)
 		}
 	}
 	// Powerups
@@ -193,6 +164,39 @@ func drawMap(s tcell.Screen, p *entity.Player, fs FloorView) {
 	}
 	// Player
 	DrawRune(s, p.Pos.X, p.Pos.Y+offsetY, '@', palette.FG(palette.Yellow).Bold(true))
+}
+
+// drawTile renders the single map cell at (x, y) into screen coords
+// (x, y+offsetY) using the same colour rules as the live game view.
+// Extracted from drawMap so the intro transition can render a partial,
+// ripple-revealed map without duplicating cell styling.
+func drawTile(s tcell.Screen, l *world.Level, x, y, offsetY int) {
+	t := l.Tiles[y][x]
+	r := t.Glyph()
+	var st tcell.Style
+	switch t {
+	case world.TileWall, world.TileSecretDoor:
+		st = palette.FG(palette.Blue)
+		if l.Mask != nil {
+			pt := world.Point{X: x, Y: y}
+			if isLetterOutline(l, pt) {
+				st = palette.FG(palette.Cycle[l.Mask.ColorIx]).Bold(true)
+			}
+		}
+	case world.TileFloor:
+		if idx, ok := l.VaultColors[world.Point{X: x, Y: y}]; ok && idx >= 0 && idx < len(palette.Cycle) {
+			DrawRune(s, x, y+offsetY, '█', palette.FG(palette.Cycle[idx]))
+			return
+		}
+		st = palette.FG(palette.DimGray)
+	case world.TileStairs:
+		st = palette.FG(palette.Orange).Bold(true)
+	case world.TilePlate:
+		st = palette.FG(palette.Magenta).Bold(true)
+	default:
+		st = palette.FG(palette.DimGray)
+	}
+	DrawRune(s, x, y+offsetY, r, st)
 }
 
 func drawLogTail(s tcell.Screen, log *MessageLog, levelH int) {

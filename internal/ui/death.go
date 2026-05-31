@@ -2,11 +2,11 @@ package ui
 
 import (
 	"github.com/gdamore/tcell/v2"
-	"github.com/leereilly/buildlike/internal/ui/palette"
+	"github.com/leereilly/commit-crawl/internal/ui/palette"
 )
 
 var helpLines = []string{
-	"BUILDLIKE — CONTROLS",
+	"COMMIT CRAWL — CONTROLS",
 	"",
 	"  Move           arrows, WASD, hjkl, numpad 1-9",
 	"  Diagonals      y u b n   (or numpad 7 9 1 3)",

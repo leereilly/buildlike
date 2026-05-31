@@ -1,4 +1,4 @@
-// Command buildlike is a charming Go roguelike themed on Microsoft Build.
+// Command commit-crawl is a charming Go roguelike themed on Microsoft Build.
 // You play @, you squash bugs (b), you eat green +s, you climb five letter-
 // shaped dungeons spelling BUILD, and the credits roll with a... surprise.
 package main
@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/leereilly/buildlike/internal/contribgraph"
-	"github.com/leereilly/buildlike/internal/game"
-	"github.com/leereilly/buildlike/internal/rng"
-	"github.com/leereilly/buildlike/internal/ui"
-	"github.com/leereilly/buildlike/internal/ui/palette"
+	"github.com/leereilly/commit-crawl/internal/contribgraph"
+	"github.com/leereilly/commit-crawl/internal/game"
+	"github.com/leereilly/commit-crawl/internal/rng"
+	"github.com/leereilly/commit-crawl/internal/ui"
+	"github.com/leereilly/commit-crawl/internal/ui/palette"
 )
 
 func main() {
@@ -29,7 +29,7 @@ func main() {
 
 	if handle := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(*user), "@")); handle != "" {
 		if err := generateContribGraph(handle); err != nil {
-			fmt.Fprintf(os.Stderr, "buildlike: %v\n", err)
+			fmt.Fprintf(os.Stderr, "commit-crawl: %v\n", err)
 			os.Exit(1)
 		}
 		return
@@ -37,11 +37,11 @@ func main() {
 
 	screen, err := tcell.NewScreen()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "buildlike: cannot create screen: %v\n", err)
+		fmt.Fprintf(os.Stderr, "commit-crawl: cannot create screen: %v\n", err)
 		os.Exit(1)
 	}
 	if err := screen.Init(); err != nil {
-		fmt.Fprintf(os.Stderr, "buildlike: cannot init screen: %v\n", err)
+		fmt.Fprintf(os.Stderr, "commit-crawl: cannot init screen: %v\n", err)
 		os.Exit(1)
 	}
 	defer screen.Fini()
@@ -101,6 +101,12 @@ func run(screen tcell.Screen, g *game.Game) {
 			// Re-render phases that animate.
 			switch {
 			case g.Phase == game.PhaseTitle, g.Phase == game.PhaseRickRoll, g.Phase == game.PhaseUsername:
+				render(screen, g, tipIdx)
+			case g.Phase == game.PhaseIntro:
+				// PhaseIntro is fully tick-driven: each pulse advances the
+				// bloom + slide animation, and AdvanceIntro flips the
+				// phase to PhasePlaying once the timeline finishes.
+				g.AdvanceIntro()
 				render(screen, g, tipIdx)
 			case g.Phase == game.PhaseEndSequence:
 				// PhaseEndSequence is fully tick-driven: each pulse
@@ -176,10 +182,15 @@ func handleKey(g *game.Game, ev *tcell.EventKey) bool {
 			return false
 		}
 		// Enter submits and starts the run, but only once we have a
-		// valid handle. Silently no-op otherwise.
+		// valid handle. Silently no-op otherwise. Instead of jumping
+		// straight to PhasePlaying, route through PhaseIntro so the
+		// username screen melts away into the first floor with the
+		// avatar gliding into the spawn cell.
 		if ev.Key() == tcell.KeyEnter {
 			if g.UsernameReady() {
-				g.StartRun()
+				w, h := g.Screen.Size()
+				sx, sy := ui.UsernameAtPos(w, h)
+				g.BeginIntro(sx, sy)
 			}
 			return false
 		}
@@ -187,6 +198,14 @@ func handleKey(g *game.Game, ev *tcell.EventKey) bool {
 		if r := ev.Rune(); r != 0 {
 			g.AppendUsernameRune(r)
 		}
+	case game.PhaseIntro:
+		// Any key (other than quit) skips the bloom animation and drops
+		// the player straight into PhasePlaying. The intro's auto-advance
+		// in the tick loop will get them there in ~2.6s if they wait.
+		if a == game.ActQuit {
+			return true
+		}
+		g.SkipIntro()
 	case game.PhasePlaying:
 		if a == game.ActQuit {
 			return true
@@ -233,6 +252,8 @@ func render(screen tcell.Screen, g *game.Game, tipIdx int) {
 	switch g.Phase {
 	case game.PhaseUsername:
 		ui.RenderUsername(screen, g.Username, g.Tick, g.UsernameReady())
+	case game.PhaseIntro:
+		ui.RenderIntro(screen, g.Intro, g.Player, g.Floor, g.Tick)
 	case game.PhaseTitle:
 		tip := ui.Tips[tipIdx%len(ui.Tips)]
 		ui.RenderTitle(screen, tip, g.Tick, g.KonamiArmed)

@@ -88,7 +88,7 @@ var Palette = []string{
 // userAgent identifies us to GitHub. The endpoint is unauthenticated but
 // having a clear UA helps if behaviour ever needs to be debugged from
 // access logs.
-const userAgent = "buildlike-contribgraph/1 (+https://github.com/leereilly/buildlike)"
+const userAgent = "commit-crawl-contribgraph/1 (+https://github.com/leereilly/commit-crawl)"
 
 // Fetch downloads and decodes the .contribs JSON for username. A nil
 // client falls back to a sensible default with a short timeout so callers

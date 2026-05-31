@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/leereilly/buildlike/internal/ui/palette"
-	"github.com/leereilly/buildlike/internal/world"
+	"github.com/leereilly/commit-crawl/internal/ui/palette"
+	"github.com/leereilly/commit-crawl/internal/world"
 )
 
 // TeleportDurationTicks is how many 100ms ticks the teleport animation runs

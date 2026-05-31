@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/leereilly/buildlike/internal/ui"
-	"github.com/leereilly/buildlike/internal/world"
+	"github.com/leereilly/commit-crawl/internal/ui"
+	"github.com/leereilly/commit-crawl/internal/world"
 )
 
 // TestRenderTeleportSmoke confirms RenderTeleport doesn't panic for any of

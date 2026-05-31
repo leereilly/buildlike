@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/leereilly/buildlike/internal/ui/palette"
+	"github.com/leereilly/commit-crawl/internal/ui/palette"
 )
 
 // rickFramesRaw is the embedded ASCII animation. The file is git-ignored; drop

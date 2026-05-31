@@ -1,8 +1,8 @@
 package entity
 
 import (
-	"github.com/leereilly/buildlike/internal/rng"
-	"github.com/leereilly/buildlike/internal/world"
+	"github.com/leereilly/commit-crawl/internal/rng"
+	"github.com/leereilly/commit-crawl/internal/world"
 )
 
 type Bug struct {

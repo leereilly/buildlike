@@ -2,7 +2,7 @@ package ui
 
 import (
 	"github.com/gdamore/tcell/v2"
-	"github.com/leereilly/buildlike/internal/ui/palette"
+	"github.com/leereilly/commit-crawl/internal/ui/palette"
 )
 
 // Copilot mascot rendered using the exact CLI banner glyphs, positioned

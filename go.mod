@@ -1,4 +1,4 @@
-module github.com/leereilly/buildlike
+module github.com/leereilly/commit-crawl
 
 go 1.26.1
 

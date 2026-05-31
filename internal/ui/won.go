@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/leereilly/buildlike/internal/ui/palette"
+	"github.com/leereilly/commit-crawl/internal/ui/palette"
 )
 
 // RenderWon is the post-Rick-Roll victory screen.
@@ -12,7 +12,7 @@ func RenderWon(s tcell.Screen, maxHP int, vaulted bool) {
 	Clear(s)
 	w, h := s.Size()
 	lines := []string{
-		"You shipped the build.",
+		"You shipped it!",
 		"",
 		fmt.Sprintf("Final HP capacity: %d", maxHP),
 		"",

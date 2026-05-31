@@ -2,8 +2,23 @@ package ui
 
 import (
 	"github.com/gdamore/tcell/v2"
-	"github.com/leereilly/buildlike/internal/ui/palette"
+	"github.com/leereilly/commit-crawl/internal/ui/palette"
 )
+
+// UsernameAtPos returns the screen cell where the brand-magenta '@' glyph is
+// drawn during PhaseUsername for the given terminal size. The post-username
+// intro transition uses this to glide the player avatar from its on-screen
+// resting position into the floor spawn without snapping.
+func UsernameAtPos(w, h int) (int, int) {
+	const fieldWidth = 42
+	cy := h / 2
+	if cy < 6 {
+		cy = 6
+	}
+	boxX := (w - fieldWidth) / 2
+	boxY := cy - 1
+	return boxX + 2, boxY + 1
+}
 
 // RenderUsername draws the opening "enter your GitHub handle" screen.
 //
@@ -30,12 +45,12 @@ func RenderUsername(s tcell.Screen, username string, tick int, ready bool) {
 		prefixCols = 4 // "│ @ │" inside the box (left border + space + @ + space + bar)
 	)
 
-	cy := h / 2
-	if cy < 6 {
-		cy = 6
-	}
+	atX, atY := UsernameAtPos(w, h)
+	cy := atY + 1 // UsernameAtPos returns (boxX+2, boxY+1) where boxY = cy-1
+	boxX := atX - 2
+	boxY := atY - 1
 
-	welcome := "Welcome to Buildlike!"
+	welcome := "Welcome to Commit Crawl!"
 	DrawString(s, (w-runeLen(welcome))/2, cy-5,
 		welcome, palette.FG(palette.Yellow).Bold(true))
 
@@ -44,14 +59,12 @@ func RenderUsername(s tcell.Screen, username string, tick int, ready bool) {
 		prompt, palette.FG(palette.White))
 
 	// Input frame.
-	boxX := (w - fieldWidth) / 2
-	boxY := cy - 1
 	drawBox(s, boxX, boxY, fieldWidth, 3, palette.FG(palette.DimGray))
 
 	// Prefix cell: "│ @ │"  — the literal '@' sits inside the field, in the
 	// brand magenta, with a divider after it so it reads as a non-editable
 	// addon.
-	DrawRune(s, boxX+2, boxY+1, '@', palette.FG(palette.Magenta).Bold(true))
+	DrawRune(s, atX, atY, '@', palette.FG(palette.Magenta).Bold(true))
 	DrawRune(s, boxX+4, boxY+1, '│', palette.FG(palette.DimGray))
 
 	// Editable area starts after the divider.

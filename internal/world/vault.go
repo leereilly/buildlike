@@ -1,7 +1,7 @@
 package world
 
 import (
-	"github.com/leereilly/buildlike/internal/rng"
+	"github.com/leereilly/commit-crawl/internal/rng"
 )
 
 // buildLogo is a 5-row, hand-drawn miniature of the "BUILD" wordmark.

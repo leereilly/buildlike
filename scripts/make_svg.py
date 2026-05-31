@@ -105,14 +105,14 @@ def build_svg(frames: list[list[str]], fill: str, frame_ms: int) -> str:
     for i, f in enumerate(frames):
         body.append(frame_to_text(f, i * frame_h))
 
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {frame_w} {frame_h}" width="{frame_w}" height="{frame_h}" role="img" aria-label="buildlike ASCII animation">
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {frame_w} {frame_h}" width="{frame_w}" height="{frame_h}" role="img" aria-label="commit-crawl ASCII animation">
 <style>
 text {{ font: {FONT_SIZE}px ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; fill: {fill}; white-space: pre; }}
-.strip {{ animation: buildlike-roll {duration_s}s steps({n}) infinite; }}
-@keyframes buildlike-roll {{ from {{ transform: translateY(0); }} to {{ transform: translateY(-{total_h}px); }} }}
+.strip {{ animation: commitcrawl-roll {duration_s}s steps({n}) infinite; }}
+@keyframes commitcrawl-roll {{ from {{ transform: translateY(0); }} to {{ transform: translateY(-{total_h}px); }} }}
 </style>
-<clipPath id="buildlike-clip"><rect width="{frame_w}" height="{frame_h}"/></clipPath>
-<g clip-path="url(#buildlike-clip)"><g class="strip">{''.join(body)}</g></g>
+<clipPath id="commitcrawl-clip"><rect width="{frame_w}" height="{frame_h}"/></clipPath>
+<g clip-path="url(#commitcrawl-clip)"><g class="strip">{''.join(body)}</g></g>
 </svg>
 '''
 
@@ -130,7 +130,7 @@ def main():
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    for name, fill in (("buildlike-light.svg", "#000"), ("buildlike-dark.svg", "#fff")):
+    for name, fill in (("commit-crawl-light.svg", "#000"), ("commit-crawl-dark.svg", "#fff")):
         svg = build_svg(frames, fill, args.frame_ms)
         path = out_dir / name
         path.write_text(svg)

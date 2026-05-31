@@ -3,9 +3,9 @@ package game
 import (
 	"fmt"
 
-	"github.com/leereilly/buildlike/internal/entity"
-	"github.com/leereilly/buildlike/internal/rng"
-	"github.com/leereilly/buildlike/internal/world"
+	"github.com/leereilly/commit-crawl/internal/entity"
+	"github.com/leereilly/commit-crawl/internal/rng"
+	"github.com/leereilly/commit-crawl/internal/world"
 )
 
 // FloorState holds everything for the currently-active dungeon floor.

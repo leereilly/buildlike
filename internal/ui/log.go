@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"github.com/leereilly/buildlike/internal/rng"
+	"github.com/leereilly/commit-crawl/internal/rng"
 )
 
 type LogKind int
@@ -70,7 +70,7 @@ var powerupFlavors = []string{
 	"Stack Overflow approved. +1 HP.",
 	"You feel slightly healthier. (+1 HP)",
 	"Hot fix. +1 HP.",
-	"git pull origin coffee. +1 HP.",
+	"What a diff that makes. +1 HP.",
 }
 
 // Title-screen tip rotation.
