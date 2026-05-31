@@ -12,7 +12,10 @@ Output "scripts/_out/gameplay.gif"
 Output "scripts/_out/gameplay.webm"
 
 Set Shell "bash"
-Set FontFamily "JetBrains Mono"
+# JetBrains Mono (plain) lacks single-cell glyphs for ◆ ✦ ★ ⠋ ─ ╮ etc., so the
+# terminal falls back to a proportional font for those runes and the grid
+# breaks. The Nerd Font Mono variant ships those at one cell wide.
+Set FontFamily "JetBrainsMono Nerd Font Mono"
 Set FontSize 16
 Set Width 1280
 Set Height 760
@@ -33,20 +36,7 @@ Sleep 400ms
 Enter
 
 # --- Title screen: rainbow wordmark shimmer.
-Sleep 1.8s
-
-# --- Konami code easter egg (↑↑↓↓←→←→ B A) → INVINCIBLE MODE.
-Up    Sleep 110ms
-Up    Sleep 110ms
-Down  Sleep 110ms
-Down  Sleep 110ms
-Left  Sleep 110ms
-Right Sleep 110ms
-Left  Sleep 110ms
-Right Sleep 110ms
-Type "b" Sleep 110ms
-Type "a"
-Sleep 1.0s
+Sleep 2.2s
 
 # --- Press any key to advance to username entry.
 Space

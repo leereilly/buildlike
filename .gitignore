@@ -1,5 +1,6 @@
 /commit-crawl
 /dist/
+/scripts/_out/
 *.test
 *.out
 .DS_Store
