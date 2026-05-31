@@ -372,10 +372,17 @@ func uniqueHSVSorted(cs []color.RGBA) []color.RGBA {
 }
 
 // drawRoundedRect paints a rounded rectangle of size w×h, top-left at
-// (x0,y0), into img at palette index idx. Pixels are inside the shape iff
-// their distance from the nearest "corner-anchor" point (the clamp of the
-// pixel into the inner straight band) is ≤ radius. The result is binary
-// (no antialiasing) which is the only thing GIF's palette index encoding
+// (x0,y0), into img at palette index idx. A pixel is "in" iff its centre
+// (dx+0.5, dy+0.5) lies within `radius` of the nearest point on the
+// inner straight rectangle [radius, w-radius] × [radius, h-radius].
+//
+// We carry the test in fixed point (everything ×2) so the half-pixel
+// centre offset stays integer: ex2 = 2*(dx+0.5 - cx) and the threshold
+// is (2*radius)². Using pixel centres rather than pixel corners is what
+// keeps the corner from looking chamfered/octagonal at small sizes —
+// it shaves only the truly-outside pixels instead of overcutting by
+// half a pixel on each axis. The result is still binary (no
+// antialiasing) which is the only thing GIF's palette index encoding
 // can natively express.
 func drawRoundedRect(img *image.Paletted, x0, y0, w, h, radius int, idx uint8) {
 	if radius < 0 {
@@ -387,30 +394,29 @@ func drawRoundedRect(img *image.Paletted, x0, y0, w, h, radius int, idx uint8) {
 	if 2*radius > h {
 		radius = h / 2
 	}
-	r2 := radius * radius
+	thresh := 4 * radius * radius
 	for dy := 0; dy < h; dy++ {
-		var ccy int
+		var ey2 int
 		switch {
 		case dy < radius:
-			ccy = radius
-		case dy > h-1-radius:
-			ccy = h - 1 - radius
+			ey2 = 2*dy + 1 - 2*radius
+		case dy >= h-radius:
+			ey2 = 2*dy + 1 - 2*(h-radius)
 		default:
-			ccy = dy
+			ey2 = 0
 		}
-		ey := dy - ccy
+		ey2sq := ey2 * ey2
 		for dx := 0; dx < w; dx++ {
-			var ccx int
+			var ex2 int
 			switch {
 			case dx < radius:
-				ccx = radius
-			case dx > w-1-radius:
-				ccx = w - 1 - radius
+				ex2 = 2*dx + 1 - 2*radius
+			case dx >= w-radius:
+				ex2 = 2*dx + 1 - 2*(w-radius)
 			default:
-				ccx = dx
+				ex2 = 0
 			}
-			ex := dx - ccx
-			if ex*ex+ey*ey > r2 {
+			if ex2*ex2+ey2sq > thresh {
 				continue
 			}
 			img.SetColorIndex(x0+dx, y0+dy, idx)
