@@ -2,6 +2,8 @@
 
 A tiny terminal roguelike themed on Microsoft Build. Squash bugs (`b`), grab green commits (`+`), and climb five letter-shaped dungeons that spell **B-U-I-L-D**.
 
+<img src="gameplay.gif" width="100%" alt="Commit Crawl gameplay">
+
 Survive to the end and `commit-crawl` will render a Build-themed contribution graph for your GitHub handle, but you have to earn it. Throw it on your README profile, your LinkedIn header, or print it and stick it on your (work) fridge.
 
 You'll get a GIF
