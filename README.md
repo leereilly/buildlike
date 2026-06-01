@@ -14,25 +14,41 @@ And an SVG
 
 <img src="contribution-graph.svg" width="100%" alt="Build-themed GitHub contribution graph SVG">
 
-## Build and play
+## Install
 
-Requires [Go 1.26+](https://go.dev/dl/). No other dependencies — the SVG and GIF generation is pure Go and works the same on macOS, Linux, and Windows.
+`commit-crawl` is a [GitHub CLI](https://cli.github.com) extension, so you'll need `gh` first:
+
+- **macOS:** `brew install gh`
+- **Windows:** `winget install --id GitHub.cli`
+- **Linux:** see the [official install instructions](https://github.com/cli/cli#installation)
+
+Then install the extension:
 
 ```sh
-go run ./cmd/commit-crawl
+gh extension install leereilly/gh-commit-crawl
 ```
 
-Or build a binary:
+Upgrade later with `gh extension upgrade commit-crawl`.
+
+## Play
 
 ```sh
-go build -o commit-crawl ./cmd/commit-crawl
-./commit-crawl
+gh commit-crawl
 ```
 
 Or skip the game and render someone else's Build-themed contribution graph straight to disk (writes both `contribution-graph.svg` and `contribution-graph.gif`):
 
 ```sh
-go run ./cmd/commit-crawl --user octocat
+gh commit-crawl --user octocat
+```
+
+## Build from source
+
+Requires [Go 1.26+](https://go.dev/dl/). No other dependencies — the SVG and GIF generation is pure Go and works the same on macOS, Linux, and Windows.
+
+```sh
+go build -o gh-commit-crawl ./cmd/commit-crawl
+./gh-commit-crawl
 ```
 
 
