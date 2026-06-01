@@ -58,11 +58,11 @@ var wordmarkBuild2026 = []wordmarkGlyph{
 		"XXXX.",
 	}},
 	{ch: ' ', rows: []string{
-		"...",
-		"...",
-		"...",
-		"...",
-		"...",
+		".",
+		".",
+		".",
+		".",
+		".",
 	}},
 	{ch: '2', rows: []string{
 		"XXXX.",
@@ -134,8 +134,12 @@ func WordmarkBuild2026Data() *Data {
 		}
 	}
 	// Widen the gap between "BUILD" and "2026" so the wordmark reads as
-	// two words rather than one ten-character blob.
-	extraSpaceCols := 1
+	// two words rather than one ten-character blob. The ' ' glyph is
+	// 1 col wide, surrounded by the standard 1-col gaps on each side,
+	// giving a 3-column visual gap between the 'D' and the '2' — wide
+	// enough to read as a word break while keeping the whole wordmark
+	// inside the 53-week contribution grid.
+	extraSpaceCols := 0
 	totalCols += extraSpaceCols
 	if totalCols > weeks {
 		totalCols = weeks
