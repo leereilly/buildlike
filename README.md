@@ -15,7 +15,7 @@
   </a>
 </p>
 
-<img src="gameplay.gif" width="100%" alt="Commit Crawl gameplay">
+<img src="docs/gameplay.gif" width="100%" alt="Commit Crawl gameplay">
 
 
 A tiny terminal roguelike themed on Microsoft Build. Squash bugs (`b`), grab green commits (`+`), and climb five letter-shaped dungeons that spell **B-U-I-L-D**. Survive to the end and you'll get your custom Build-themed contribution graph for your GitHub handle  Throw it on on your README profiles, your LinkedIn cover image, or print it and stick it on your (work) fridge.
@@ -23,25 +23,25 @@ A tiny terminal roguelike themed on Microsoft Build. Squash bugs (`b`), grab gre
 You'll get a GIF that opens on the `BUILD 2026` wordmark and morphs seamlessly into your contribution graph
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="build-2026-intro-dark.gif">
-  <source media="(prefers-color-scheme: light)" srcset="build-2026-intro-light.gif">
-  <img src="build-2026-intro-light.gif" alt="Build-themed GitHub contribution graph GIF with BUILD 2026 intro">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/intro-dark.gif">
+  <source media="(prefers-color-scheme: light)" srcset="docs/intro-light.gif">
+  <img src="docs/intro-light.gif" alt="Build-themed GitHub contribution graph GIF with BUILD 2026 intro">
 </picture>
 
 And a GIF _without_ the `BUILD 2026` intro
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="contribution-graph-dark.gif">
-  <source media="(prefers-color-scheme: light)" srcset="contribution-graph-light.gif">
-  <img src="contribution-graph-light.gif" width="100%" alt="Build-themed GitHub contribution graph GIF">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/graph-dark.gif">
+  <source media="(prefers-color-scheme: light)" srcset="docs/graph-light.gif">
+  <img src="docs/graph-light.gif" width="100%" alt="Build-themed GitHub contribution graph GIF">
 </picture>
 
 And an SVG
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="contribution-graph-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="contribution-graph-light.svg">
-  <img src="contribution-graph-light.svg" width="100%" alt="Build-themed GitHub contribution graph SVG">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/graph-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/graph-light.svg">
+  <img src="docs/graph-light.svg" width="100%" alt="Build-themed GitHub contribution graph SVG">
 </picture>
 
 Every artifact ships in both light and dark variants.
