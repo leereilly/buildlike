@@ -18,10 +18,10 @@ const (
 	maskLevelH  = 22
 	maskScaleX  = 9
 	maskScaleY  = 2
-	maskLetterW = 72                              // 8 * sx
-	maskLetterH = 20                              // 10 * sy
-	maskOffsetX = (maskLevelW - maskLetterW) / 2  // = 4
-	maskOffsetY = (maskLevelH - maskLetterH) / 2  // = 1
+	maskLetterW = 72                             // 8 * sx
+	maskLetterH = 20                             // 10 * sy
+	maskOffsetX = (maskLevelW - maskLetterW) / 2 // = 4
+	maskOffsetY = (maskLevelH - maskLetterH) / 2 // = 1
 )
 
 // LetterMask is a level-sized boolean grid. cells[y][x] == true means the cell
@@ -49,7 +49,7 @@ func (m *LetterMask) Edge(p Point) bool {
 	if m == nil || !m.Contains(p) {
 		return false
 	}
-	for _, d := range [4]Point{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+	for _, d := range [4]Point{{X: 1}, {X: -1}, {Y: 1}, {Y: -1}} {
 		n := Point{p.X + d.X, p.Y + d.Y}
 		if !m.Contains(n) {
 			return true

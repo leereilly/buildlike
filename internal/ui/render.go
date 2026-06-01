@@ -131,7 +131,7 @@ func drawHUD(s tcell.Screen, p *entity.Player, l *world.Level, username string) 
 	if p.Invincible {
 		// Pulse a rainbow star just past the HP bar so the player has a
 		// persistent reminder that the Konami cheat is active.
-		c := palette.Cycle[((w*7)%len(palette.Cycle))]
+		c := palette.Cycle[((w * 7) % len(palette.Cycle))]
 		DrawRune(s, bx+barW+1, 0, '★', palette.FG(c).Bold(true))
 	}
 }
@@ -254,7 +254,7 @@ func isLetterOutline(l *world.Level, p world.Point) bool {
 	if l.Mask == nil || !l.Mask.Contains(p) {
 		return false
 	}
-	for _, d := range [4]world.Point{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+	for _, d := range [4]world.Point{{X: 1}, {X: -1}, {Y: 1}, {Y: -1}} {
 		n := world.Point{X: p.X + d.X, Y: p.Y + d.Y}
 		if !l.Mask.Contains(n) {
 			return true

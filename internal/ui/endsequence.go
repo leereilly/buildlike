@@ -38,18 +38,18 @@ const (
 // Scene-time constants (one tick = 100ms in the main loop). All values are
 // measured from the start of the end sequence.
 const (
-	endFlashTicks    = 30 // length of the "You made it!" flash
-	endFlashBlink    = 6  // visible-on / hidden-off period during the flash
-	endPostFlash     = 6  // brief pause before the prompt fades in
-	endTypeRate      = 2  // ticks per typed character (~20 cps)
-	endPostCdPause   = 8  // breath between typing cd and typing build
-	endPostBuildPause = 6 // breath between typing build and showing output
-	endSpinnerTicks  = 22 // duration each spinner step "thinks" before ✓
-	endPostOutputPause = 6 // breath between spinner ✓ and the git status prompt
-	endPostGitPause  = 12 // breath after `git status` is typed before rickroll
-	endFailPerLine   = 14 // ticks before the next "we can't continue" line appears
-	endFailHold      = 28 // ticks the failure message lingers before rickroll
-	endStatusTimeout = 35 // tolerated wait (in scene ticks) for the probe
+	endFlashTicks      = 30 // length of the "You made it!" flash
+	endFlashBlink      = 6  // visible-on / hidden-off period during the flash
+	endPostFlash       = 6  // brief pause before the prompt fades in
+	endTypeRate        = 2  // ticks per typed character (~20 cps)
+	endPostCdPause     = 8  // breath between typing cd and typing build
+	endPostBuildPause  = 6  // breath between typing build and showing output
+	endSpinnerTicks    = 22 // duration each spinner step "thinks" before ✓
+	endPostOutputPause = 6  // breath between spinner ✓ and the git status prompt
+	endPostGitPause    = 12 // breath after `git status` is typed before rickroll
+	endFailPerLine     = 14 // ticks before the next "we can't continue" line appears
+	endFailHold        = 28 // ticks the failure message lingers before rickroll
+	endStatusTimeout   = 35 // tolerated wait (in scene ticks) for the probe
 )
 
 // endPromptPrefix is the shell prompt printed before each typed command.
@@ -264,8 +264,6 @@ func runContribGraph(username, outPath string) {
 	defer cancel()
 	_ = fn(ctx, username, outPath)
 }
-
-
 
 // NewEndSequence allocates the state and kicks off the network probe in a
 // background goroutine. The probe is best-effort: any failure (DNS, TLS,

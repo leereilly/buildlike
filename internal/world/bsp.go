@@ -5,10 +5,10 @@ import (
 )
 
 const (
-	MaxRooms       = 9
-	MinPartSize    = 8 // smallest partition we'll split further
-	MinRoomW       = 4
-	MinRoomH       = 3
+	MaxRooms    = 9
+	MinPartSize = 8 // smallest partition we'll split further
+	MinRoomW    = 4
+	MinRoomH    = 3
 )
 
 type bspNode struct {
@@ -252,7 +252,7 @@ func carvePath(l *Level, a, b Point, mask *LetterMask) bool {
 			found = true
 			break
 		}
-		for _, d := range [4]Point{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+		for _, d := range [4]Point{{X: 1}, {X: -1}, {Y: 1}, {Y: -1}} {
 			n := Point{p.X + d.X, p.Y + d.Y}
 			if !l.In(n) || visited[n] || !mask.Contains(n) {
 				continue

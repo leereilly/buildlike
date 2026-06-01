@@ -1,0 +1,73 @@
+name: Bug report
+description: Something doesn't work the way it should
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug! Please fill in as much of
+        the form as you can — the more we know up front, the faster we can fix it.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear, concise description of the bug.
+      placeholder: When I press > on the stairs of floor 3, the game…
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      placeholder: I expected to ascend to floor 4.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Ideally include the exact `gh commit-crawl …` command and any `--seed` value.
+      placeholder: |
+        1. gh commit-crawl --seed 42
+        2. Type my-handle, press Enter
+        3. Walk to the stairs on floor 3
+        4. Press >
+      render: bash
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Extension version
+      description: Output of `gh extension list | grep commit-crawl` (or the tag you built from).
+      placeholder: v0.2.0
+    validations:
+      required: true
+
+  - type: input
+    id: gh-version
+    attributes:
+      label: gh CLI version
+      description: Output of `gh --version`.
+      placeholder: gh version 2.55.0 (2024-08-21)
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS and terminal
+      placeholder: macOS 15.4 / iTerm2 3.5 / xterm-256color
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output, screenshots, or recordings
+      description: Optional — paste any errors, attach screenshots, or link an asciinema cast.

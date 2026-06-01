@@ -45,7 +45,7 @@ func (b *Bug) Act(l *world.Level, player world.Point, occ map[world.Point]bool, 
 	if r.Chance(0.7) {
 		return 0
 	}
-	dirs := [4]world.Point{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
+	dirs := [4]world.Point{{X: 1}, {X: -1}, {Y: 1}, {Y: -1}}
 	d := dirs[r.Intn(4)]
 	next := world.Point{X: b.Pos.X + d.X, Y: b.Pos.Y + d.Y}
 	if l.Walkable(next) && !occ[next] && next != player {

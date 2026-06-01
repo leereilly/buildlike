@@ -6,7 +6,9 @@ import (
 
 // buildLogo is a 5-row, hand-drawn miniature of the "BUILD" wordmark.
 // Each non-space character marks a colored floor pixel; letters are color-coded:
-//   B=0(Red) U=1(Orange) I=2(Yellow) L=3(Green) D=4(Blue) (indices into palette.Cycle).
+//
+//	B=0(Red) U=1(Orange) I=2(Yellow) L=3(Green) D=4(Blue) (indices into palette.Cycle).
+//
 // A trailing magenta '*' (index 5) is rendered separately as the pressure plate.
 var buildLogo = []string{
 	"BBB. UUUU III LLLL DDD. ",
@@ -109,7 +111,7 @@ func placeSecretDoor(l *Level, vault Rect) bool {
 		// One side floor (the existing dungeon), one side floor (the vault).
 		hasOutside := false
 		hasInside := false
-		for _, d := range [4]Point{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+		for _, d := range [4]Point{{X: 1}, {X: -1}, {Y: 1}, {Y: -1}} {
 			n := Point{c.X + d.X, c.Y + d.Y}
 			if !l.In(n) {
 				continue

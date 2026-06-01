@@ -421,6 +421,7 @@ func TestEndSequenceLiveValuesMatchRuntime(t *testing.T) {
 		t.Errorf("endBuildText = %q, want %q for GOOS=%s", got, want, runtime.GOOS)
 	}
 }
+
 // per-character typing schedule for `cd developers/developers/developers`:
 //  1. It is meaningfully faster than the old uniform pace would have been
 //     (otherwise we haven't actually sped anything up).

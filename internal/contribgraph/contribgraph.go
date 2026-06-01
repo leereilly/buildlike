@@ -238,7 +238,6 @@ func hexToRGB(s string) (int, int, int) {
 	return int(r), int(g), int(b)
 }
 
-
 // xmlEscape is the safe form of stuffing arbitrary user-supplied text
 // (usernames!) into <text>, <title>, and <desc> bodies.
 func xmlEscape(s string) string {

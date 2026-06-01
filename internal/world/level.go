@@ -36,8 +36,8 @@ func NewLevel(w, h, depth int) *Level {
 	return l
 }
 
-func (l *Level) In(p Point) bool { return p.X >= 0 && p.X < l.W && p.Y >= 0 && p.Y < l.H }
-func (l *Level) At(p Point) Tile { return l.Tiles[p.Y][p.X] }
+func (l *Level) In(p Point) bool     { return p.X >= 0 && p.X < l.W && p.Y >= 0 && p.Y < l.H }
+func (l *Level) At(p Point) Tile     { return l.Tiles[p.Y][p.X] }
 func (l *Level) Set(p Point, t Tile) { l.Tiles[p.Y][p.X] = t }
 
 func (l *Level) Walkable(p Point) bool {
@@ -64,7 +64,7 @@ func (l *Level) FloodFillReachable(from, to Point) bool {
 		if p == to {
 			return true
 		}
-		for _, d := range [4]Point{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+		for _, d := range [4]Point{{X: 1}, {X: -1}, {Y: 1}, {Y: -1}} {
 			n := Point{p.X + d.X, p.Y + d.Y}
 			if !l.In(n) || seen[n.Y][n.X] {
 				continue
