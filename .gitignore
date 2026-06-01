@@ -1,4 +1,5 @@
 /commit-crawl
+/gh-commit-crawl
 /dist/
 /scripts/_out/
 *.test
