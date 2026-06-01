@@ -30,21 +30,9 @@ gh extension install leereilly/gh-commit-crawl
 
 Upgrade later with `gh extension upgrade commit-crawl`.
 
-## Play
-
-```sh
-gh commit-crawl
-```
-
-Or skip the game and render someone else's Build-themed contribution graph straight to disk (writes both `contribution-graph.svg` and `contribution-graph.gif`):
-
-```sh
-gh commit-crawl --user octocat
-```
-
 ## Build from source
 
-Requires [Go 1.26+](https://go.dev/dl/). No other dependencies — the SVG and GIF generation is pure Go and works the same on macOS, Linux, and Windows.
+Requires [Go 1.26+](https://go.dev/dl/).
 
 ```sh
 go build -o gh-commit-crawl ./cmd/commit-crawl
