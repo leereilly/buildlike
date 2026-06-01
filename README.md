@@ -44,9 +44,7 @@ And an SVG
   <img src="contribution-graph-light.svg" width="100%" alt="Build-themed GitHub contribution graph SVG">
 </picture>
 
-Every artifact ships in both light and dark variants — the empty contribution
-squares pick up the matching GitHub theme colour so the graph reads cleanly
-on either background.
+Every artifact ships in both light and dark variants.
 
 ## Install
 
@@ -75,7 +73,7 @@ go install github.com/leereilly/commit-crawl/cmd/commit-crawl@latest
 ## Quick start
 
 ```sh
-gh commit-crawl                         # play the game
+gh commit-crawl                        # play the game
 gh commit-crawl -seed 42               # deterministic run
 gh commit-crawl -no-color
 
