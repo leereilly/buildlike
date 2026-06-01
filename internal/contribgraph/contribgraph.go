@@ -21,6 +21,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -338,4 +339,87 @@ func gifPathFor(svgPath string) string {
 		return svgPath[:len(svgPath)-4] + ".gif"
 	}
 	return svgPath + ".gif"
+}
+
+// IntroGIFScale is the GIF upscaling factor used for the BUILD 2026 intro
+// loop in the README. Exposed so other callers (the dungeon-end goroutine,
+// the preview script) can stay byte-identical to the committed artifacts.
+const IntroGIFScale = 3
+
+// IntroFileName is the basename (no extension) of the BUILD 2026 intro
+// GIFs that ship with the README. The themed variants land next to the
+// contribution-graph artifacts as `build-2026-intro-<theme>.gif`.
+const IntroFileName = "build-2026-intro"
+
+// GenerateReadmeAssets fetches `username`'s contribution data once and
+// writes the full set of README-ready artifacts derived from `outPath`:
+//
+//   - <base>-light.svg, <base>-light.gif
+//   - <base>-dark.svg,  <base>-dark.gif
+//   - <dir>/build-2026-intro-light.gif
+//   - <dir>/build-2026-intro-dark.gif
+//
+// where <base> is `outPath` with any `.svg`/`.gif` suffix stripped and
+// <dir> is the directory containing `outPath`. An empty `outPath` falls
+// back to DefaultOutputPath, matching Generate.
+//
+// This is the production entrypoint used by the dungeon-end goroutine
+// and the preview script: callers get a complete, theme-aware artifact
+// set from a single network round-trip.
+func GenerateReadmeAssets(ctx context.Context, client *http.Client, username, outPath string) error {
+	data, err := Fetch(ctx, client, username)
+	if err != nil {
+		return err
+	}
+	return GenerateReadmeAssetsFromData(data, username, outPath)
+}
+
+// GenerateReadmeAssetsFromData is GenerateReadmeAssets without the fetch
+// step — useful for tests and for callers that already have a Data value
+// (e.g. the preview script's `--wordmark-only` mode).
+func GenerateReadmeAssetsFromData(data *Data, username, outPath string) error {
+	if outPath == "" {
+		outPath = DefaultOutputPath
+	}
+	base := stripGraphExt(outPath)
+	dir := filepath.Dir(outPath)
+	for _, theme := range []Theme{ThemeLight, ThemeDark} {
+		svgPath := base + "-" + theme.Name + ".svg"
+		gifPath := base + "-" + theme.Name + ".gif"
+		introPath := filepath.Join(dir, IntroFileName+"-"+theme.Name+".gif")
+
+		svg := RenderWithTheme(data, username, nil, theme)
+		if err := os.WriteFile(svgPath, svg, 0o644); err != nil {
+			return fmt.Errorf("contribgraph: write %s: %w", svgPath, err)
+		}
+		gifBytes, err := RenderGIFWithTheme(data, username, nil, theme, 0)
+		if err != nil {
+			return fmt.Errorf("contribgraph: render gif (%s): %w", theme.Name, err)
+		}
+		if err := os.WriteFile(gifPath, gifBytes, 0o644); err != nil {
+			return fmt.Errorf("contribgraph: write %s: %w", gifPath, err)
+		}
+		introBytes, err := RenderIntroGIF(data, username, nil, theme, IntroGIFScale)
+		if err != nil {
+			return fmt.Errorf("contribgraph: render intro (%s): %w", theme.Name, err)
+		}
+		if err := os.WriteFile(introPath, introBytes, 0o644); err != nil {
+			return fmt.Errorf("contribgraph: write %s: %w", introPath, err)
+		}
+	}
+	return nil
+}
+
+// stripGraphExt removes a trailing `.svg` or `.gif` (case-insensitive)
+// from p so the per-theme suffix can be appended cleanly. Anything else
+// is returned untouched so non-standard paths like "/tmp/graph" still
+// produce sensible "/tmp/graph-light.svg" etc.
+func stripGraphExt(p string) string {
+	if len(p) >= 4 {
+		tail := strings.ToLower(p[len(p)-4:])
+		if tail == ".svg" || tail == ".gif" {
+			return p[:len(p)-4]
+		}
+	}
+	return p
 }

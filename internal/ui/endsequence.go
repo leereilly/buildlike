@@ -180,11 +180,19 @@ type EndSequenceState struct {
 	// in that case.
 	Username string
 
-	// GraphPath is where the Build-themed contribution graph SVG will be
-	// written when the success branch reaches the spinner stage. The
-	// matching animated GIF is written alongside with the .svg extension
-	// swapped for .gif. Defaults to contribgraph.DefaultOutputPath (i.e.
-	// "contribution-graph.svg" in the current working directory).
+	// GraphPath is the base output path for the Build-themed contribution
+	// graph artifacts written when the success branch reaches the spinner
+	// stage. Six files land next to each other:
+	//
+	//   <base>-light.svg, <base>-light.gif
+	//   <base>-dark.svg,  <base>-dark.gif
+	//   <dir>/build-2026-intro-light.gif
+	//   <dir>/build-2026-intro-dark.gif
+	//
+	// where <base> is GraphPath with its `.svg`/`.gif` suffix stripped
+	// and <dir> is the directory containing it. Defaults to
+	// contribgraph.DefaultOutputPath (so the artifacts land in the
+	// current working directory).
 	GraphPath string
 
 	// status is the EndStatus value, accessed atomically because the
@@ -209,9 +217,10 @@ var endStatusClient func(ctx context.Context, username string) EndStatus
 
 // endContribGenerator is the contribution-graph generator hook. Tests
 // override this to avoid the network and to assert on the call. Production
-// callers leave it nil and we fall through to contribgraph.Generate, which
-// fetches https://github.com/<user>.contribs and writes both the SVG and
-// the matching animated GIF.
+// callers leave it nil and we fall through to contribgraph.GenerateReadmeAssets,
+// which fetches https://github.com/<user>.contribs and writes the full
+// README artifact set (light/dark SVG+GIF pairs plus the BUILD 2026 intro
+// GIFs for both themes).
 var endContribGenerator func(ctx context.Context, username, outPath string) error
 
 // MaybeStartContribGraph kicks off the one-shot Build-themed contribution
@@ -262,11 +271,10 @@ func runContribGraph(username, outPath string) {
 	fn := endContribGenerator
 	if fn == nil {
 		fn = func(ctx context.Context, username, outPath string) error {
-			_, err := contribgraph.Generate(ctx, nil, username, outPath)
-			return err
+			return contribgraph.GenerateReadmeAssets(ctx, nil, username, outPath)
 		}
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	_ = fn(ctx, username, outPath)
 }

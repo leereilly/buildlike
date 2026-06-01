@@ -241,3 +241,78 @@ func TestGenerateFromDataWritesFile(t *testing.T) {
 		t.Errorf("file does not start with XML prolog: %q", string(disk[:50]))
 	}
 }
+
+// TestGenerateReadmeAssetsFromDataWritesSixFiles is the regression test
+// for the dungeon-end goroutine: a single call must leave the full set
+// of README artifacts on disk — light + dark SVG/GIF pairs plus the
+// BUILD 2026 intro GIFs for both themes. Previously the goroutine only
+// wrote the single transparent SVG+GIF pair, so README references like
+// `contribution-graph-light.svg` were silently absent after a real run.
+func TestGenerateReadmeAssetsFromDataWritesSixFiles(t *testing.T) {
+	dir := t.TempDir()
+	base := filepath.Join(dir, "contribution-graph.svg")
+	if err := GenerateReadmeAssetsFromData(sampleData(), "octocat", base); err != nil {
+		t.Fatalf("GenerateReadmeAssetsFromData: %v", err)
+	}
+	want := []string{
+		filepath.Join(dir, "contribution-graph-light.svg"),
+		filepath.Join(dir, "contribution-graph-light.gif"),
+		filepath.Join(dir, "contribution-graph-dark.svg"),
+		filepath.Join(dir, "contribution-graph-dark.gif"),
+		filepath.Join(dir, "build-2026-intro-light.gif"),
+		filepath.Join(dir, "build-2026-intro-dark.gif"),
+	}
+	for _, p := range want {
+		info, err := os.Stat(p)
+		if err != nil {
+			t.Errorf("missing artifact %s: %v", p, err)
+			continue
+		}
+		if info.Size() == 0 {
+			t.Errorf("artifact %s is empty", p)
+		}
+	}
+}
+
+// TestGenerateReadmeAssetsFromDataHonoursCustomBase confirms a non-default
+// outPath (e.g. `--output me.svg`) still derives the per-theme suffixes
+// from the supplied basename, and the intro GIFs always land next to the
+// graphs as `build-2026-intro-<theme>.gif`.
+func TestGenerateReadmeAssetsFromDataHonoursCustomBase(t *testing.T) {
+	dir := t.TempDir()
+	base := filepath.Join(dir, "me.svg")
+	if err := GenerateReadmeAssetsFromData(sampleData(), "octocat", base); err != nil {
+		t.Fatalf("GenerateReadmeAssetsFromData: %v", err)
+	}
+	for _, name := range []string{
+		"me-light.svg", "me-light.gif",
+		"me-dark.svg", "me-dark.gif",
+		"build-2026-intro-light.gif",
+		"build-2026-intro-dark.gif",
+	} {
+		if _, err := os.Stat(filepath.Join(dir, name)); err != nil {
+			t.Errorf("missing artifact %s: %v", name, err)
+		}
+	}
+}
+
+// TestStripGraphExt pins the per-theme suffix derivation. The dungeon-end
+// goroutine relies on this to turn `contribution-graph.svg` into
+// `contribution-graph-light.svg` (and friends) without dropping directory
+// components or eating non-graph extensions.
+func TestStripGraphExt(t *testing.T) {
+	cases := map[string]string{
+		"contribution-graph.svg": "contribution-graph",
+		"contribution-graph.SVG": "contribution-graph",
+		"contribution-graph.gif": "contribution-graph",
+		"/abs/path/me.svg":       "/abs/path/me",
+		"noext":                  "noext",
+		"some.weird.name":        "some.weird.name",
+		"":                       "",
+	}
+	for in, want := range cases {
+		if got := stripGraphExt(in); got != want {
+			t.Errorf("stripGraphExt(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

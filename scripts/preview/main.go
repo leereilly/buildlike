@@ -48,27 +48,20 @@ func main() {
 			fail(fmt.Errorf("fetch %s: %w", *handle, err))
 		}
 		yearData = data
-		for _, theme := range []contribgraph.Theme{contribgraph.ThemeLight, contribgraph.ThemeDark} {
-			svgPath := filepath.Join(*outDir, "contribution-graph-"+theme.Name+".svg")
-			gifPath := filepath.Join(*outDir, "contribution-graph-"+theme.Name+".gif")
-			svg := contribgraph.RenderWithTheme(data, *handle, nil, theme)
-			if err := os.WriteFile(svgPath, svg, 0o644); err != nil {
-				fail(err)
-			}
-			gifBytes, err := contribgraph.RenderGIFWithTheme(data, *handle, nil, theme, 0)
-			if err != nil {
-				fail(err)
-			}
-			if err := os.WriteFile(gifPath, gifBytes, 0o644); err != nil {
-				fail(err)
-			}
-			fmt.Printf("wrote %s\n", svgPath)
-			fmt.Printf("wrote %s\n", gifPath)
+		base := filepath.Join(*outDir, "contribution-graph.svg")
+		if err := contribgraph.GenerateReadmeAssetsFromData(data, *handle, base); err != nil {
+			fail(err)
 		}
+		for _, theme := range []contribgraph.Theme{contribgraph.ThemeLight, contribgraph.ThemeDark} {
+			fmt.Printf("wrote %s\n", filepath.Join(*outDir, "contribution-graph-"+theme.Name+".svg"))
+			fmt.Printf("wrote %s\n", filepath.Join(*outDir, "contribution-graph-"+theme.Name+".gif"))
+			fmt.Printf("wrote %s\n", filepath.Join(*outDir, contribgraph.IntroFileName+"-"+theme.Name+".gif"))
+		}
+		return
 	}
 
 	for _, theme := range []contribgraph.Theme{contribgraph.ThemeLight, contribgraph.ThemeDark} {
-		gifPath := filepath.Join(*outDir, "build-2026-intro-"+theme.Name+".gif")
+		gifPath := filepath.Join(*outDir, contribgraph.IntroFileName+"-"+theme.Name+".gif")
 		// The intro GIF opens on the BUILD 2026 wordmark and crossfades
 		// into the user's animated contribution graph. When --wordmark-only
 		// is set or the year-graph fetch was skipped, fall back to the
@@ -78,7 +71,7 @@ func main() {
 		if source == nil {
 			source = contribgraph.WordmarkBuild2026Data()
 		}
-		gifBytes, err := contribgraph.RenderIntroGIF(source, *handle, nil, theme, 3)
+		gifBytes, err := contribgraph.RenderIntroGIF(source, *handle, nil, theme, contribgraph.IntroGIFScale)
 		if err != nil {
 			fail(err)
 		}
