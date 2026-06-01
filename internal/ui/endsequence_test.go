@@ -335,8 +335,8 @@ func TestContribGraphSkippedWhenNoUsername(t *testing.T) {
 
 // TestEndPromptPrefixIsOSAware verifies the prompt prefix that gates the
 // typed shell lines flips between the POSIX "$ " and a PowerShell-flavored
-// "PS> " depending on which OS we're rendering for. The helper is pure so
-// we can exercise both branches from any host platform.
+// "PS C:\> " depending on which OS we're rendering for. The helper is pure
+// so we can exercise both branches from any host platform.
 func TestEndPromptPrefixIsOSAware(t *testing.T) {
 	cases := []struct {
 		goos string
@@ -346,7 +346,7 @@ func TestEndPromptPrefixIsOSAware(t *testing.T) {
 		{"linux", "$ "},
 		{"freebsd", "$ "},
 		{"openbsd", "$ "},
-		{"windows", "PS> "},
+		{"windows", `PS C:\> `},
 	}
 	for _, tc := range cases {
 		t.Run(tc.goos, func(t *testing.T) {
@@ -383,16 +383,18 @@ func TestEndCdTextIsOSAware(t *testing.T) {
 	}
 }
 
-// TestEndBuildTextIsOSAware confirms that the typed build invocation is
-// the bare "build" on POSIX (relies on PATH / current shell semantics) and
-// ".\build.exe" on Windows (PowerShell refuses to run a current-directory
-// binary without the ".\" prefix, and the .exe extension is canonical).
+// TestEndBuildTextIsOSAware confirms that the typed build invocation uses
+// the local-binary form on both platforms: "./build" on POSIX and
+// ".\build.exe" on Windows. The leading "./" / ".\" matters because
+// neither shell will resolve a current-directory binary on its own (POSIX
+// doesn't put "." on $PATH; PowerShell refuses unqualified current-dir
+// execution), and the ".exe" suffix is canonical on Windows.
 func TestEndBuildTextIsOSAware(t *testing.T) {
-	if got := endBuildTextFor("linux"); got != "build" {
-		t.Errorf("posix build line = %q, want \"build\"", got)
+	if got := endBuildTextFor("linux"); got != "./build" {
+		t.Errorf("posix build line = %q, want \"./build\"", got)
 	}
-	if got := endBuildTextFor("darwin"); got != "build" {
-		t.Errorf("darwin build line = %q, want \"build\"", got)
+	if got := endBuildTextFor("darwin"); got != "./build" {
+		t.Errorf("darwin build line = %q, want \"./build\"", got)
 	}
 	win := endBuildTextFor("windows")
 	if want := `.\build.exe`; win != want {
@@ -403,6 +405,14 @@ func TestEndBuildTextIsOSAware(t *testing.T) {
 	}
 	if !strings.HasPrefix(win, `.\`) {
 		t.Errorf("windows build line %q must start with .\\ so PowerShell will execute it", win)
+	}
+	// POSIX form must use the "./" prefix for the same reason — bare
+	// "build" would either fail to resolve or pick up an unrelated tool
+	// on $PATH, which would undermine the gag the moment a curious
+	// player ran it for real.
+	posix := endBuildTextFor("linux")
+	if !strings.HasPrefix(posix, "./") {
+		t.Errorf("posix build line %q must start with ./ so the shell will execute the local binary", posix)
 	}
 }
 

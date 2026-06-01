@@ -55,12 +55,15 @@ const (
 // endPromptPrefix is the shell prompt printed before each typed command.
 // On macOS/Linux it's the familiar POSIX "$ "; on Windows we mimic a
 // PowerShell prompt instead so the finale reads as native to whichever OS
-// the player is actually on. Both variants include the trailing space.
+// the player is actually on. The PowerShell form includes the canonical
+// "PS <cwd>>" shape (with a placeholder C:\ cwd) so it reads as a real
+// pwsh.exe prompt rather than a stylised shorthand. Both variants include
+// the trailing space.
 var endPromptPrefix = endPromptPrefixFor(runtime.GOOS)
 
 func endPromptPrefixFor(goos string) string {
 	if goos == "windows" {
-		return "PS> "
+		return `PS C:\> `
 	}
 	return "$ "
 }
@@ -131,16 +134,19 @@ func endCdTotalTicks() int {
 }
 
 // endBuildText is the build command typed on the next line. The spinner
-// output below it pretends to be `build`'s log output. On Windows we use
-// the PowerShell-canonical ".\build.exe" form so it looks like a real
-// invocation of a local binary rather than a missing PATH lookup.
+// output below it pretends to be `build`'s log output. We deliberately use
+// the local-binary invocation form on both platforms — "./build" on POSIX
+// and ".\build.exe" on Windows — so the gag reads as "the cd actually
+// landed us next to a binary we can run", instead of a bare "build" that a
+// real POSIX shell would either fail to resolve or resolve to an unrelated
+// tool on $PATH.
 var endBuildText = endBuildTextFor(runtime.GOOS)
 
 func endBuildTextFor(goos string) string {
 	if goos == "windows" {
 		return `.\build.exe`
 	}
-	return "build"
+	return "./build"
 }
 
 // endGitText is the cherry on top: the player watches the game type out
