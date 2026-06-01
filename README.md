@@ -20,19 +20,33 @@
 
 A tiny terminal roguelike themed on Microsoft Build. Squash bugs (`b`), grab green commits (`+`), and climb five letter-shaped dungeons that spell **B-U-I-L-D**. Survive to the end and you'll get your custom Build-themed contribution graph for your GitHub handle  Throw it on on your README profiles, your LinkedIn cover image, or print it and stick it on your (work) fridge.
 
-You'll get a GIF _with_ `BUILD 2026`
+You'll get a GIF that opens on the `BUILD 2026` wordmark and morphs seamlessly into your contribution graph
 
-<img src="build-2026-intro.gif" alt="Build-themed GitHub contribution graph GIF with BUILD 2026 text">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="build-2026-intro-dark.gif">
+  <source media="(prefers-color-scheme: light)" srcset="build-2026-intro-light.gif">
+  <img src="build-2026-intro-light.gif" alt="Build-themed GitHub contribution graph GIF with BUILD 2026 intro">
+</picture>
 
-And a GIF _without_ `BUILD 2026`
+And a GIF _without_ the `BUILD 2026` intro
 
-<img src="contribution-graph.gif" width="100%" alt="Build-themed GitHub contribution graph GIF">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="contribution-graph-dark.gif">
+  <source media="(prefers-color-scheme: light)" srcset="contribution-graph-light.gif">
+  <img src="contribution-graph-light.gif" width="100%" alt="Build-themed GitHub contribution graph GIF">
+</picture>
 
 And an SVG
 
-<img src="contribution-graph.svg" width="100%" alt="Build-themed GitHub contribution graph SVG">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="contribution-graph-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="contribution-graph-light.svg">
+  <img src="contribution-graph-light.svg" width="100%" alt="Build-themed GitHub contribution graph SVG">
+</picture>
 
-And yes, there are like and dark mode versions.
+Every artifact ships in both light and dark variants — the empty contribution
+squares pick up the matching GitHub theme colour so the graph reads cleanly
+on either background.
 
 ## Install
 
@@ -64,6 +78,14 @@ go install github.com/leereilly/commit-crawl/cmd/commit-crawl@latest
 gh commit-crawl                         # play the game
 gh commit-crawl -seed 42               # deterministic run
 gh commit-crawl -no-color
+
+# Render @octocat's Build-themed contribution graph as a transparent
+# SVG + GIF (level-0 cells are skipped) into the current directory:
+gh commit-crawl --user octocat
+
+# Or render light + dark variants in one go (writes -light.{svg,gif} and
+# -dark.{svg,gif} pairs whose empty cells match the GitHub theme colours):
+gh commit-crawl --user octocat --theme both
 ```
 
 ## Keybindings

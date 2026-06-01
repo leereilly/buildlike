@@ -135,6 +135,15 @@ func Fetch(ctx context.Context, client *http.Client, username string) (*Data, er
 // 20 colors in Palette — i.e. only the colors found in the Microsoft
 // Build wordmark the palette was sampled from.
 func Render(data *Data, username string, palette []string) []byte {
+	return RenderWithTheme(data, username, palette, ThemeNone)
+}
+
+// RenderWithTheme is Render plus an explicit Theme. ThemeNone reproduces
+// Render's transparent-background output byte-for-byte; ThemeLight /
+// ThemeDark add a full grid of rounded empty-cell rects in the theme's
+// EmptyCell colour so the graph reads cleanly on light or dark README
+// backgrounds without relying on CSS.
+func RenderWithTheme(data *Data, username string, palette []string, theme Theme) []byte {
 	if data == nil {
 		return nil
 	}
@@ -167,17 +176,25 @@ func Render(data *Data, username string, palette []string) []byte {
 		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" width="%d" height="%d" role="img" aria-label="%s">`+"\n",
 		width, height, width, height, xmlEscape(label))
 
-	// Day cells. Level-0 cells are skipped entirely so the background
-	// reads as transparent rather than as a flat in-palette block.
+	// Day cells. Level-0 cells are either skipped (transparent theme)
+	// or rendered in the theme's empty-cell colour so the grid
+	// silhouette is visible on flat backgrounds.
 	fmt.Fprintln(&b, `  <g shape-rendering="geometricPrecision">`)
+	emptyFill := theme.EmptyCellHex()
 	for wi, w := range data.Weeks {
 		firstDay, _ := time.Parse("2006-01-02", w.FirstDay)
 		for _, d := range w.ContributionDays {
-			if d.Level <= 0 {
-				continue
-			}
 			x := wi * stride
 			y := d.Weekday * stride
+			if d.Level <= 0 {
+				if theme.Transparent() {
+					continue
+				}
+				fmt.Fprintf(&b,
+					"    <rect x=\"%d\" y=\"%d\" width=\"%d\" height=\"%d\" rx=\"%d\" ry=\"%d\" fill=\"%s\"/>\n",
+					x, y, cell, cell, radius, radius, emptyFill)
+				continue
+			}
 			dateStr := ""
 			if !firstDay.IsZero() {
 				dateStr = firstDay.AddDate(0, 0, d.Weekday).Format("2006-01-02")
@@ -250,12 +267,27 @@ func xmlEscape(s string) string {
 // SVG, and write it to outPath (or DefaultOutputPath when empty). It
 // returns the rendered bytes alongside any error so callers can also
 // surface or embed the SVG without re-reading the file.
+//
+// Generate writes the transparent (no-theme) variant — use GenerateThemed
+// to also emit light/dark companions.
 func Generate(ctx context.Context, client *http.Client, username, outPath string) ([]byte, error) {
 	data, err := Fetch(ctx, client, username)
 	if err != nil {
 		return nil, err
 	}
 	return GenerateFromData(data, username, outPath)
+}
+
+// GenerateThemed is Generate plus a Theme: it fetches once and renders an
+// SVG + GIF pair into outPath / its .gif sibling using the supplied theme.
+// Useful for producing per-theme README assets in a single network round
+// trip.
+func GenerateThemed(ctx context.Context, client *http.Client, username, outPath string, theme Theme) ([]byte, error) {
+	data, err := Fetch(ctx, client, username)
+	if err != nil {
+		return nil, err
+	}
+	return GenerateFromDataThemed(data, username, outPath, theme)
 }
 
 // GenerateFromData renders an already-fetched Data payload for username
@@ -268,15 +300,26 @@ func Generate(ctx context.Context, client *http.Client, username, outPath string
 // Returns the SVG bytes alongside any error. If the SVG write succeeds
 // but the GIF render or write fails, the SVG is still left on disk and
 // the GIF-related error is returned.
+//
+// Empty cells render as transparent — call GenerateFromDataThemed to
+// pick a light / dark grid background instead.
 func GenerateFromData(data *Data, username, outPath string) ([]byte, error) {
+	return GenerateFromDataThemed(data, username, outPath, ThemeNone)
+}
+
+// GenerateFromDataThemed is GenerateFromData with an explicit Theme. It
+// writes a themed SVG to outPath and a themed GIF to the matching .gif
+// path; both have empty cells in theme.EmptyCell (or transparent when
+// theme.Transparent()).
+func GenerateFromDataThemed(data *Data, username, outPath string, theme Theme) ([]byte, error) {
 	if outPath == "" {
 		outPath = DefaultOutputPath
 	}
-	svg := Render(data, username, nil)
+	svg := RenderWithTheme(data, username, nil, theme)
 	if err := os.WriteFile(outPath, svg, 0o644); err != nil {
 		return nil, fmt.Errorf("contribgraph: write %s: %w", outPath, err)
 	}
-	gifBytes, err := RenderGIF(data, username, nil)
+	gifBytes, err := RenderGIFWithTheme(data, username, nil, theme, 0)
 	if err != nil {
 		return svg, err
 	}

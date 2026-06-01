@@ -23,11 +23,13 @@ const (
 	gifMaxColors = 255    // 256 minus the reserved transparent slot
 )
 
-// emptyCellRGB is GitHub's light-theme "no contributions" cell colour. The
-// SVG renderer skips these cells entirely (transparent background), but
-// the GIF draws them as static rounded squares so the calendar layout is
-// readable even on a sparse year.
-var emptyCellRGB = color.RGBA{0xEB, 0xED, 0xF0, 0xFF}
+// emptyCellRGB is GitHub's light-theme "no contributions" cell colour and
+// the historical default for renderGIF when no Theme is supplied. The
+// transparent-theme renderer skips empty cells entirely (transparent
+// background); the light/dark themed renderers swap this for their own
+// per-theme background colour so the calendar layout reads cleanly on
+// either README mode.
+var emptyCellRGB = ThemeLight.EmptyCell
 
 // transparentRGBA is the colour reserved at palette index 0. Go's image/gif
 // encoder treats any palette entry with A=0 as the transparent index, and
@@ -44,11 +46,26 @@ var transparentRGBA = color.RGBA{0, 0, 0, 0}
 // The returned bytes are a complete, self-contained looping GIF safe to
 // write straight to disk.
 func RenderGIF(data *Data, username string, palette []string) ([]byte, error) {
+	// Historical default: a light-grey empty grid at the package-level
+	// gifScale, so existing callers and disk artifacts are byte-stable.
+	legacy := Theme{Name: "legacy", EmptyCell: emptyCellRGB}
+	return RenderGIFWithTheme(data, username, palette, legacy, gifScale)
+}
+
+// RenderGIFWithTheme renders the animated graph with an explicit empty-
+// cell theme and scale factor. When scale <= 0 the package-level gifScale
+// is used. ThemeNone leaves empty cells transparent (no rounded grey
+// background); ThemeLight / ThemeDark fill them with the matching GitHub
+// empty-cell colour.
+func RenderGIFWithTheme(data *Data, username string, palette []string, theme Theme, scale int) ([]byte, error) {
 	if data == nil {
 		return emptyGIF()
 	}
 	if len(palette) == 0 {
 		palette = Palette
+	}
+	if scale <= 0 {
+		scale = gifScale
 	}
 
 	const (
@@ -77,12 +94,16 @@ func RenderGIF(data *Data, username string, palette []string) ([]byte, error) {
 	}
 	var live []liveCell
 	var dead []deadCell
+	skipDead := theme.Transparent()
 	for wi, w := range data.Weeks {
 		firstDay, _ := time.Parse("2006-01-02", w.FirstDay)
 		for _, d := range w.ContributionDays {
 			x := wi * stride
 			y := d.Weekday * stride
 			if d.Level <= 0 {
+				if skipDead {
+					continue
+				}
 				dead = append(dead, deadCell{x: x, y: y})
 				continue
 			}
@@ -175,7 +196,7 @@ func RenderGIF(data *Data, username string, palette []string) ([]byte, error) {
 		cellRGBs[t] = row
 	}
 	if len(dead) > 0 {
-		freq[emptyCellRGB] += len(dead)
+		freq[theme.EmptyCell] += len(dead)
 	}
 
 	// Quantise the union of every distinct (cell, frame) RGB down to
@@ -218,7 +239,7 @@ func RenderGIF(data *Data, username string, palette []string) ([]byte, error) {
 	}
 	emptyIdx := uint8(0)
 	if len(dead) > 0 {
-		emptyIdx = rgbToIdx[emptyCellRGB]
+		emptyIdx = rgbToIdx[theme.EmptyCell]
 	}
 
 	// Build and encode the frames. Each frame uses the same shared palette
@@ -232,8 +253,8 @@ func RenderGIF(data *Data, username string, palette []string) ([]byte, error) {
 	// disposal=DisposalNone leaves the previous frame's pixels in place.
 	// This shrinks the encoded file by a large factor on graphs where
 	// most cells don't visibly change frame-to-frame.
-	sw, sh := width*gifScale, height*gifScale
-	sc := gifScale
+	sw, sh := width*scale, height*scale
+	sc := scale
 	bounds := image.Rect(0, 0, sw, sh)
 
 	frames := make([]*image.Paletted, gifFrames)

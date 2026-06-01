@@ -19,7 +19,8 @@ There is no JavaScript, no Python, no C — and we intend to keep it that way.
 
 ```
 cmd/commit-crawl/       main package (CLI entrypoint, flag parsing, run loop)
-internal/contribgraph/  GitHub .contribs JSON → SVG + animated GIF
+internal/contribgraph/  GitHub .contribs JSON → SVG + animated GIF (themes,
+                        BUILD 2026 wordmark)
 internal/entity/        player, bug, jester, powerup model
 internal/game/          game state machine, input, autopilot
 internal/rng/           seeded RNG wrapper
@@ -27,6 +28,8 @@ internal/ui/            tcell renderers + screen-by-screen logic
 internal/world/         BSP dungeon generation, letter masks, LOS, tiles
 docs/                   SVG hero art used in the README
 scripts/                helper scripts (recordings, demos)
+scripts/preview/        regenerates the README's contribution-graph and
+                        BUILD 2026 wordmark assets (light + dark variants)
 .github/                workflows, issue/PR templates, Copilot instructions
 ```
 

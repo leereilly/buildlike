@@ -80,6 +80,7 @@ func main() {
 	user := flag.String("user", "", "GitHub handle: render its Build-themed contribution graph and exit (skips the game)")
 	output := flag.String("output", contribgraph.DefaultOutputPath, "output path for --user (e.g. me.svg). The matching .gif lands next to it.")
 	format := flag.String("format", "svg,gif", "comma list of artifacts to write with --user: svg,gif")
+	theme := flag.String("theme", "none", "empty-cell theme for --user output: none (transparent), light, dark, or both (writes -light/-dark pairs)")
 	copilotPlays := flag.Bool("copilot-plays", false, "let Copilot drive the whole run (autopilot mode) — pair with --seed for reproducible demos")
 	as := flag.String("as", "", "GitHub handle to pre-fill on the username screen (used by --copilot-plays so a demo is unattended)")
 	pr := flag.Bool("pr", false, "with --user: print the gh CLI commands you'd run to PR the generated graph onto your profile README, then exit")
@@ -102,7 +103,7 @@ func main() {
 			}
 			return
 		}
-		if err := generateContribGraph(handle, *output, *format); err != nil {
+		if err := generateContribGraph(handle, *output, *format, *theme); err != nil {
 			fail(err)
 		}
 		return
@@ -471,8 +472,18 @@ func render(screen tcell.Screen, g *game.Game, tipIdx int) {
 // the matching `.gif` (when GIF output is selected). The renderer never
 // touches tcell so the caller can use --user from a non-interactive shell
 // (CI, docs builds, etc.).
-func generateContribGraph(handle, outPath, format string) error {
+//
+// `theme` is one of "none" (transparent empty cells, the default and
+// what historical callers got), "light", "dark", or "both". When "both"
+// is selected, the renderer writes two pairs of files with `-light` and
+// `-dark` suffixes appended to the output base name so a single command
+// produces the assets needed for a theme-aware README.
+func generateContribGraph(handle, outPath, format, theme string) error {
 	wantSVG, wantGIF, err := parseFormats(format)
+	if err != nil {
+		return err
+	}
+	themes, err := parseThemes(theme)
 	if err != nil {
 		return err
 	}
@@ -486,26 +497,60 @@ func generateContribGraph(handle, outPath, format string) error {
 		outPath = contribgraph.DefaultOutputPath
 	}
 	var wrote []string
-	if wantSVG {
-		svg := contribgraph.Render(data, handle, nil)
-		if err := os.WriteFile(outPath, svg, 0o644); err != nil {
-			return fmt.Errorf("write %s: %w", outPath, err)
+	for _, th := range themes {
+		base := outPath
+		if len(themes) > 1 {
+			base = themedPath(outPath, th.Name)
 		}
-		wrote = append(wrote, outPath)
-	}
-	if wantGIF {
-		gifBytes, err := contribgraph.RenderGIF(data, handle, nil)
-		if err != nil {
-			return fmt.Errorf("render gif: %w", err)
+		if wantSVG {
+			svg := contribgraph.RenderWithTheme(data, handle, nil, th)
+			if err := os.WriteFile(base, svg, 0o644); err != nil {
+				return fmt.Errorf("write %s: %w", base, err)
+			}
+			wrote = append(wrote, base)
 		}
-		gifPath := gifPathFor(outPath)
-		if err := os.WriteFile(gifPath, gifBytes, 0o644); err != nil {
-			return fmt.Errorf("write %s: %w", gifPath, err)
+		if wantGIF {
+			gifBytes, err := contribgraph.RenderGIFWithTheme(data, handle, nil, th, 0)
+			if err != nil {
+				return fmt.Errorf("render gif (%s): %w", th.Name, err)
+			}
+			gifPath := gifPathFor(base)
+			if err := os.WriteFile(gifPath, gifBytes, 0o644); err != nil {
+				return fmt.Errorf("write %s: %w", gifPath, err)
+			}
+			wrote = append(wrote, gifPath)
 		}
-		wrote = append(wrote, gifPath)
 	}
 	fmt.Fprintf(os.Stdout, "Wrote @%s's Build-themed contribution graph to %s\n", handle, strings.Join(wrote, " and "))
 	return nil
+}
+
+// parseThemes turns the --theme flag value into a slice of themes to
+// render. The empty string and "none" both yield the transparent theme;
+// "both" expands to {light, dark}; anything else is delegated to
+// ThemeByName so the error path stays consistent.
+func parseThemes(s string) ([]contribgraph.Theme, error) {
+	s = strings.ToLower(strings.TrimSpace(s))
+	if s == "both" {
+		return []contribgraph.Theme{contribgraph.ThemeLight, contribgraph.ThemeDark}, nil
+	}
+	t, err := contribgraph.ThemeByName(s)
+	if err != nil {
+		return nil, err
+	}
+	return []contribgraph.Theme{t}, nil
+}
+
+// themedPath appends a `-<theme>` suffix to the basename of p, preserving
+// the original extension. e.g. ("foo/bar.svg", "light") -> "foo/bar-light.svg".
+func themedPath(p, theme string) string {
+	if len(p) >= 4 && strings.EqualFold(p[len(p)-4:], ".svg") {
+		return p[:len(p)-4] + "-" + theme + ".svg"
+	}
+	if len(p) >= 4 && strings.EqualFold(p[len(p)-4:], ".gif") {
+		return p[:len(p)-4] + "-" + theme + ".gif"
+	}
+	return p + "-" + theme
 }
 
 // parseFormats accepts a comma-separated list of "svg" and "gif" tokens.
@@ -557,18 +602,25 @@ func printPRCommands(handle, outPath string) error {
 	if outPath == "" {
 		outPath = contribgraph.DefaultOutputPath
 	}
-	gifPath := gifPathFor(outPath)
+	// The themed PR uses the GIF in both modes since the animation is
+	// the value-add; the SVG is left available for static embeds.
+	lightSVG := themedPath(outPath, "light")
+	darkSVG := themedPath(outPath, "dark")
+	lightGIF := gifPathFor(lightSVG)
+	darkGIF := gifPathFor(darkSVG)
 	fmt.Printf(`# Open a PR adding @%[1]s's Build-themed contribution graph to their
 # profile README. Review and run these one at a time — nothing was executed.
 
 set -euo pipefail
-gh commit-crawl --user %[1]s --output %[2]s
+gh commit-crawl --user %[1]s --output %[2]s --theme both
 
 repo=%[1]s/%[1]s
 tmp=$(mktemp -d)
 gh repo clone "$repo" "$tmp" -- --depth=1
-cp %[2]s "$tmp/commit-crawl.svg"
-cp %[3]s "$tmp/commit-crawl.gif"
+cp %[3]s "$tmp/commit-crawl-light.svg"
+cp %[4]s "$tmp/commit-crawl-dark.svg"
+cp %[5]s "$tmp/commit-crawl-light.gif"
+cp %[6]s "$tmp/commit-crawl-dark.gif"
 
 # Drop a marked block into README.md (idempotent — re-running replaces it).
 cd "$tmp"
@@ -582,8 +634,9 @@ cat >> README.md <<MD
 ## My Build-themed contribution graph
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="commit-crawl.gif">
-  <img alt="Build-themed contribution graph for @%[1]s" src="commit-crawl.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="commit-crawl-dark.gif">
+  <source media="(prefers-color-scheme: light)" srcset="commit-crawl-light.gif">
+  <img alt="Build-themed contribution graph for @%[1]s" src="commit-crawl-light.gif">
 </picture>
 
 Generated by [gh-commit-crawl](https://github.com/leereilly/gh-commit-crawl).
@@ -591,11 +644,11 @@ Generated by [gh-commit-crawl](https://github.com/leereilly/gh-commit-crawl).
 MD
 
 git checkout -b commit-crawl-graph
-git add commit-crawl.svg commit-crawl.gif README.md
+git add commit-crawl-light.svg commit-crawl-dark.svg commit-crawl-light.gif commit-crawl-dark.gif README.md
 git commit -m "Add Build-themed contribution graph"
 git push -u origin commit-crawl-graph
 gh pr create --fill --title "Add Build-themed contribution graph"
-`, handle, outPath, gifPath)
+`, handle, outPath, lightSVG, darkSVG, lightGIF, darkGIF)
 	return nil
 }
 
@@ -606,7 +659,7 @@ func runCompletion(args []string) int {
 	if len(args) > 0 {
 		shell = strings.ToLower(strings.TrimSpace(args[0]))
 	}
-	const flags = "--seed --no-color --user --output --format --copilot-plays --as --pr --version --help"
+	const flags = "--seed --no-color --user --output --format --theme --copilot-plays --as --pr --version --help"
 	switch shell {
 	case "bash":
 		fmt.Printf(`# bash completion for commit-crawl. Source it from your ~/.bashrc, e.g.:
